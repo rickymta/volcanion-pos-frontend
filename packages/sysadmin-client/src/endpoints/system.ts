@@ -1,5 +1,5 @@
 import { sysadminClient, sysadminAuth } from '../client'
-import type { SystemConfigDto, BackgroundJobDto, SuperAdminLoginRequest, SuperAdminLoginResponse, SuperAdminRefreshResponse } from '../types/system'
+import type { SystemConfigDto, SystemConfigEntry, BackgroundJobDto, SuperAdminLoginRequest, SuperAdminLoginResponse, SuperAdminRefreshResponse } from '../types/system'
 
 export const systemApi = {
   // Auth
@@ -27,6 +27,9 @@ export const systemApi = {
   // Config
   getConfig: () =>
     sysadminClient.get<SystemConfigDto>('/system/config'),
+
+  getConfigEntries: () =>
+    sysadminClient.get<SystemConfigEntry[]>('/system/config/entries'),
 
   updateConfig: (body: Partial<SystemConfigDto>) =>
     sysadminClient.put<SystemConfigDto>('/system/config', body),

@@ -62,7 +62,7 @@ function UnitConversionsPanel({ productId, units }: { productId: string; units: 
 
   const updateConvMutation = useMutation({
     mutationFn: (v: ConversionFormValues) =>
-      productsApi.updateConversion(productId, editConvId!, v),
+      productsApi.updateConversion(productId, editConvId!, { conversionRate: v.conversionRate }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['product-conversions', productId] })
       notifications.show({ color: 'green', message: 'Cập nhật quy đổi thành công' })
@@ -170,6 +170,7 @@ function UnitConversionsPanel({ productId, units }: { productId: string; units: 
             data={units}
             searchable
             required
+            disabled={!!editConvId}
             {...convForm.getInputProps('fromUnitId')}
           />
           <Select
@@ -178,6 +179,7 @@ function UnitConversionsPanel({ productId, units }: { productId: string; units: 
             data={units}
             searchable
             required
+            disabled={!!editConvId}
             {...convForm.getInputProps('toUnitId')}
           />
           <NumberInput
@@ -210,7 +212,7 @@ export default function ProductFormPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
 
-  const form = useForm<CreateProductRequest & { vatRateStr: string }>({
+  const form = useForm<CreateProductRequest & { vatRateStr: string; costingMethodStr: string }>({
     initialValues: {
       code: '',
       name: '',
@@ -222,7 +224,7 @@ export default function ProductFormPage() {
       sellingPrice: 0,
       vatRate: 0.1,
       vatRateStr: '0.1',
-      costingMethod: 'Average' as 'Average' | 'FIFO',
+      costingMethodStr: '1',
     },
     validate: {
       code: (v) => (v.trim() ? null : 'Mã sản phẩm không được trống'),
@@ -245,7 +247,7 @@ export default function ProductFormPage() {
 
   const { data: units = [] } = useQuery({
     queryKey: ['units'],
-    queryFn: () => unitsApi.list(),
+    queryFn: () => unitsApi.list({ pageSize: 999 }).then((r) => r.items),
   })
 
   useEffect(() => {
@@ -261,7 +263,7 @@ export default function ProductFormPage() {
         sellingPrice: product.sellingPrice,
         vatRate: product.vatRate,
         vatRateStr: String(product.vatRate),
-        costingMethod: (product.costingMethod ?? 'Average') as 'Average' | 'FIFO',
+        costingMethodStr: String(product.costingMethod ?? 1),
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -288,10 +290,11 @@ export default function ProductFormPage() {
   })
 
   function handleSubmit(values: CreateProductRequest & { vatRateStr: string }) {
-    const { vatRateStr, ...rest } = values
+    const { vatRateStr, costingMethodStr, ...rest } = values
     const body: CreateProductRequest = {
       ...rest,
       vatRate: parseFloat(vatRateStr),
+      costingMethod: parseInt(costingMethodStr, 10),
       categoryId: rest.categoryId || undefined,
       purchaseUnitId: rest.purchaseUnitId || undefined,
       salesUnitId: rest.salesUnitId || undefined,
@@ -311,11 +314,18 @@ export default function ProductFormPage() {
     )
   }
 
-  const unitOptions = units.map((u) => ({ value: u.id, label: `${u.name} (${u.code})` }))
-  const categoryOptions = categories.flatMap((c) => [
-    { value: c.id, label: c.name },
-    ...(c.children ?? []).map((ch) => ({ value: ch.id, label: `  ↳ ${ch.name}` })),
-  ])
+  const unitOptions = units.map((u) => ({ value: u.id, label: `${u.name} (${u.symbol})` }))
+
+  function flattenCategories(
+    nodes: typeof categories,
+    depth = 0
+  ): { value: string; label: string }[] {
+    return nodes.flatMap((c) => [
+      { value: c.id, label: depth === 0 ? c.name : `${'  '.repeat(depth)}↳ ${c.name}` },
+      ...flattenCategories(c.children ?? [], depth + 1),
+    ])
+  }
+  const categoryOptions = flattenCategories(categories)
 
   const isSaving = createMutation.isPending || updateMutation.isPending
 
@@ -423,10 +433,10 @@ export default function ProductFormPage() {
               <Select
                 label="Phương pháp tính giá vốn"
                 data={[
-                  { value: 'Average', label: 'Bình quân gia quyền' },
-                  { value: 'FIFO', label: 'Nhập trước xuất trước (FIFO)' },
+                  { value: '1', label: 'Bình quân gia quyền' },
+                  { value: '0', label: 'Nhập trước xuất trước (FIFO)' },
                 ]}
-                {...form.getInputProps('costingMethod')}
+                {...form.getInputProps('costingMethodStr')}
               />
             </Group>
 

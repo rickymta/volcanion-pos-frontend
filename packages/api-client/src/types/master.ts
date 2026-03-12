@@ -2,42 +2,117 @@
 
 export interface UnitDto {
   id: string
-  code: string
   name: string
-  description?: string
-  status: 'Active' | 'Inactive'
+  symbol: string
+  isBaseUnit: boolean
 }
+
+export interface UnitListParams {
+  keyword?: string
+  isBaseUnit?: boolean
+  page?: number
+  pageSize?: number
+}
+
+export interface CreateUnitRequest {
+  name: string
+  symbol: string
+  isBaseUnit: boolean
+}
+
+export type UpdateUnitRequest = CreateUnitRequest
 
 export interface CategoryDto {
   id: string
   code: string
   name: string
-  description?: string
-  parentCategoryId?: string
-  children?: CategoryDto[]
-  status: 'Active' | 'Inactive'
+  description?: string | null
+  parentCategoryId?: string | null
+  children: CategoryDto[]
 }
+
+export interface CreateCategoryRequest {
+  code: string
+  name: string
+  description?: string | null
+  parentCategoryId?: string | null
+}
+
+export type UpdateCategoryRequest = CreateCategoryRequest
 
 export interface WarehouseDto {
   id: string
   code: string
   name: string
-  address?: string
+  address?: string | null
+  /** 1 = Active, 0 = Inactive */
+  status: number
+  branchId?: string | null
+  branchName?: string | null
+}
+
+export interface CreateWarehouseRequest {
+  code: string
+  name: string
+  address?: string | null
+  branchId?: string | null
+}
+
+export interface UpdateWarehouseRequest {
+  name: string
+  address?: string | null
+  /** 1 = Active, 0 = Inactive */
+  status: number
+  branchId?: string | null
+}
+
+export interface WarehouseListParams {
+  keyword?: string
+  /** 1 = Active, 0 = Inactive */
+  status?: number
   branchId?: string
-  branchName?: string
-  status: 'Active' | 'Inactive'
+  page?: number
+  pageSize?: number
 }
 
 export interface BranchDto {
   id: string
   code: string
   name: string
-  address?: string
-  phone?: string
-  parentBranchId?: string
-  parentBranchCode?: string
-  children?: BranchDto[]
-  status: 'Active' | 'Inactive'
+  address?: string | null
+  phone?: string | null
+  parentBranchId?: string | null
+  parentBranchCode?: string | null
+  /** 1 = Active, 0 = Inactive */
+  status: number
+  /** Populated when using the /branches/tree endpoint */
+  subBranches?: BranchDto[]
+}
+
+export interface CreateBranchRequest {
+  code: string
+  name: string
+  address?: string | null
+  phone?: string | null
+  parentBranchId?: string | null
+}
+
+export interface UpdateBranchRequest {
+  code: string
+  name: string
+  address?: string | null
+  phone?: string | null
+  parentBranchId?: string | null
+  /** 1 = Active, 0 = Inactive */
+  status: number
+}
+
+export interface BranchListParams {
+  keyword?: string
+  /** 1 = Active, 0 = Inactive */
+  status?: number
+  page?: number
+  pageSize?: number
 }
 
 // ─── Product ──────────────────────────────────────────────────────────────────
@@ -61,7 +136,8 @@ export interface ProductDto {
   sellingPrice: number
   vatRate: number
   barcode?: string
-  costingMethod?: 'Average' | 'FIFO'
+  /** 0 = Fifo, 1 = Average */
+  costingMethod?: number
   status: 'Active' | 'Inactive'
   unitConversions: UnitConversionDto[]
 }
@@ -69,10 +145,13 @@ export interface ProductDto {
 export interface UnitConversionDto {
   id: string
   productId: string
+  productName?: string
   fromUnitId: string
   fromUnitName: string
+  fromUnitSymbol?: string
   toUnitId: string
   toUnitName: string
+  toUnitSymbol?: string
   conversionRate: number
 }
 
@@ -97,7 +176,8 @@ export interface CreateProductRequest {
   sellingPrice: number
   vatRate: number
   barcode?: string
-  costingMethod?: 'Average' | 'FIFO'
+  /** 0 = Fifo, 1 = Average */
+  costingMethod?: number
 }
 
 export type UpdateProductRequest = Partial<CreateProductRequest>

@@ -1,19 +1,23 @@
 import { useState } from 'react'
-import { Stack, Group, Button, Badge, Text, Paper, SimpleGrid, Loader, Center, TextInput, Select, PasswordInput } from '@mantine/core'
+import {
+  Stack, Group, Button, Badge, Text, Paper, SimpleGrid, Loader, Center,
+  TextInput, Select, PasswordInput, Timeline, Divider, Table, Spoiler, Code,
+} from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
-import { IconArrowLeft, IconDatabase, IconEdit } from '@tabler/icons-react'
+import { IconArrowLeft, IconDatabase, IconEdit, IconHistory, IconPlus, IconMinus } from '@tabler/icons-react'
 import { PageHeader, openConfirm, DrawerForm } from '@pos/ui'
 import { tenantsApi } from '@pos/sysadmin-client'
-import type { SubscriptionPlan } from '@pos/sysadmin-client'
+import type { SubscriptionPlan, TenantChangeHistoryEntry } from '@pos/sysadmin-client'
 import { formatDate, formatDateTime } from '@pos/utils'
 import { useTranslation } from 'react-i18next'
 
 const SUBSCRIPTION_OPTIONS = [
   { value: 'Free', label: 'Free' },
   { value: 'Basic', label: 'Basic' },
+  { value: 'Standard', label: 'Standard' },
   { value: 'Pro', label: 'Pro' },
   { value: 'Enterprise', label: 'Enterprise' },
 ]
@@ -45,6 +49,90 @@ interface EditFormValues {
   adminEmail: string
   adminUsername: string
   adminPassword: string
+}
+
+const ACTION_COLOR: Record<string, string> = { CREATE: 'green', UPDATE: 'blue', DELETE: 'red' }
+const ACTION_LABEL: Record<string, string> = { CREATE: 'Tạo mới', UPDATE: 'Cập nhật', DELETE: 'Xóa' }
+
+function ChangeDetails({ action, detailsJson }: { action: string; detailsJson: string }) {
+  let data: unknown = null
+  try {
+    data = JSON.parse(detailsJson)
+  } catch {
+    // fallthrough to raw display
+  }
+
+  const isObject = (v: unknown): v is Record<string, unknown> =>
+    v !== null && typeof v === 'object' && !Array.isArray(v)
+
+  const prettyJson = data != null
+    ? JSON.stringify(data, null, 2)
+    : detailsJson
+
+  const JsonBlock = () => (
+    <Spoiler mt={6} maxHeight={80} showLabel="Xem JSON đầy đủ ▾" hideLabel="Thu gọn ▴" fz="xs">
+      <Code block fz="xs" style={{ whiteSpace: 'pre', wordBreak: 'break-all', maxHeight: 340, overflowY: 'auto' }}>
+        {prettyJson}
+      </Code>
+    </Spoiler>
+  )
+
+  // ── UPDATE: show before/after diff table + JSON ───────────────────────────
+  if (action === 'UPDATE' && isObject(data)) {
+    const before = isObject(data.before) ? data.before : null
+    const after = isObject(data.after) ? data.after : null
+    const adminChanged = isObject(data.adminFieldsChanged) ? data.adminFieldsChanged : null
+
+    if (before || after) {
+      const allKeys = Array.from(new Set([
+        ...Object.keys(before ?? {}),
+        ...Object.keys(after ?? {}),
+      ]))
+      const changedKeys = allKeys.filter(k =>
+        String(before?.[k] ?? '') !== String(after?.[k] ?? '')
+      )
+      const adminChangedFields = adminChanged
+        ? Object.entries(adminChanged).filter(([, v]) => v === true).map(([k]) => k)
+        : []
+
+      return (
+        <Stack gap={6} mt={6}>
+          {changedKeys.length > 0 && (
+            <Table withTableBorder withColumnBorders fz="xs" style={{ tableLayout: 'fixed' }}>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th w={120}>Trường</Table.Th>
+                  <Table.Th>Trước</Table.Th>
+                  <Table.Th>Sau</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {changedKeys.map(key => (
+                  <Table.Tr key={key}>
+                    <Table.Td c="dimmed">{key}</Table.Td>
+                    <Table.Td c="red.7">{String(before?.[key] ?? '—')}</Table.Td>
+                    <Table.Td c="green.7">{String(after?.[key] ?? '—')}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          )}
+          {adminChangedFields.length > 0 && (
+            <Text size="xs" c="orange.7">
+              Admin fields đã đổi: <strong>{adminChangedFields.join(', ')}</strong>
+            </Text>
+          )}
+          {changedKeys.length === 0 && adminChangedFields.length === 0 && (
+            <Text size="xs" c="dimmed" fs="italic">Không có thay đổi nào được ghi nhận</Text>
+          )}
+          <JsonBlock />
+        </Stack>
+      )
+    }
+  }
+
+  // ── CREATE / other: show pretty JSON directly ─────────────────────────────
+  return <JsonBlock />
 }
 
 const STATUS_COLOR: Record<string, string> = { Active: 'green', Inactive: 'gray', Suspended: 'red' }
@@ -240,6 +328,44 @@ export default function TenantDetailPage() {
         <Paper withBorder p="md">
           <Text size="xs" c="dimmed">Địa chỉ</Text>
           <Text fw={500} mt={4}>{tenant.address}</Text>
+        </Paper>
+      )}
+
+      {/* Change History */}
+      {tenant.changeHistory && tenant.changeHistory.length > 0 && (
+        <Paper withBorder p="md">
+          <Group gap="xs" mb="md">
+            <IconHistory size={18} />
+            <Text fw={600}>{t('change_history')}</Text>
+            <Badge variant="light" color="gray" size="sm">{tenant.changeHistory.length}</Badge>
+          </Group>
+          <Divider mb="md" />
+          <Timeline bulletSize={26} lineWidth={2}>
+            {(tenant.changeHistory as TenantChangeHistoryEntry[]).map((entry) => {
+              const BulletIcon = entry.action === 'CREATE' ? IconPlus
+                : entry.action === 'DELETE' ? IconMinus
+                : IconEdit
+              return (
+                <Timeline.Item
+                  key={entry.id}
+                  bullet={<BulletIcon size={12} />}
+                  color={ACTION_COLOR[entry.action] ?? 'gray'}
+                  title={
+                    <Group gap="xs" wrap="wrap" mb={4}>
+                      <Badge color={ACTION_COLOR[entry.action] ?? 'gray'} size="sm" variant="filled">
+                        {ACTION_LABEL[entry.action] ?? entry.action}
+                      </Badge>
+                      <Text size="sm" fw={500}>{entry.actorEmail}</Text>
+                      <Text size="xs" c="dimmed">{formatDateTime(entry.changedAt)}</Text>
+                      <Text size="xs" c="dimmed">· IP: {entry.ipAddress}</Text>
+                    </Group>
+                  }
+                >
+                  <ChangeDetails action={entry.action} detailsJson={entry.details} />
+                </Timeline.Item>
+              )
+            })}
+          </Timeline>
         </Paper>
       )}
 

@@ -19,7 +19,7 @@ export default function InventoryBalancePage() {
 
   const { data: warehouses = [] } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => warehousesApi.list(),
+    queryFn: () => warehousesApi.list().then((r) => r.items),
   })
 
   const params = {

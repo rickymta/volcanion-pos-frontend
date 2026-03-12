@@ -21,6 +21,7 @@ const PAGE_SIZE = 20
 const SUBSCRIPTION_OPTIONS = [
   { value: 'Free', label: 'Free' },
   { value: 'Basic', label: 'Basic' },
+  { value: 'Standard', label: 'Standard' },
   { value: 'Pro', label: 'Pro' },
   { value: 'Enterprise', label: 'Enterprise' },
 ]

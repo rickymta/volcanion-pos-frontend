@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { Stack, Group, Button, TextInput, ActionIcon, Tooltip, Badge, Select, Text } from '@mantine/core'
+import { Stack, Group, Button, TextInput, ActionIcon, Tooltip, Text, Textarea } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
@@ -9,19 +9,46 @@ import { PageHeader, DataTable, DrawerForm, openConfirm } from '@pos/ui'
 import type { DataTableColumn } from '@pos/ui'
 import { categoriesApi } from '@pos/api-client'
 import type { CategoryDto } from '@pos/api-client'
+import { Select } from '@mantine/core'
+import { useIsAdmin, useIsManager } from '@pos/auth'
 
-type Row = CategoryDto & Record<string, unknown>
+// ─── Flatten tree to flat list, preserving original data + depth metadata ─────
 
-// Flatten tree to flat list for display
-function flattenCategories(cats: CategoryDto[], depth = 0): CategoryDto[] {
-  const result: CategoryDto[] = []
+interface FlatCategory extends CategoryDto {
+  _displayName: string
+  _depth: number
+}
+
+function flattenCategories(cats: CategoryDto[], depth = 0): FlatCategory[] {
+  const result: FlatCategory[] = []
   for (const cat of cats) {
-    result.push({ ...cat, name: depth > 0 ? `${'\u00A0'.repeat(depth * 4)}↳ ${cat.name}` : cat.name })
+    result.push({
+      ...cat,
+      _displayName: depth > 0 ? `${'\u00A0'.repeat(depth * 4)}↳ ${cat.name}` : cat.name,
+      _depth: depth,
+    })
     if (cat.children?.length) {
       result.push(...flattenCategories(cat.children, depth + 1))
     }
   }
   return result
+}
+
+/** Recursively find a category by id in the original tree */
+function findById(cats: CategoryDto[], id: string): CategoryDto | undefined {
+  for (const cat of cats) {
+    if (cat.id === id) return cat
+    const found = findById(cat.children ?? [], id)
+    if (found) return found
+  }
+  return undefined
+}
+
+type FormValues = {
+  code: string
+  name: string
+  description: string
+  parentCategoryId: string | null
 }
 
 export default function CategoryListPage() {
@@ -30,11 +57,17 @@ export default function CategoryListPage() {
   const [editing, setEditing] = useState<CategoryDto | null>(null)
   const [opened, { open, close }] = useDisclosure(false)
 
-  const form = useForm({
-    initialValues: { name: '', code: '', parentCategoryId: '' as string | null },
+  // Role guards — mirrors backend policies:
+  //   POST / PUT → [Authorize(Policy = "RequireManager")]  = Admin | Manager
+  //   DELETE     → [Authorize(Policy = "RequireAdmin")]    = Admin only
+  const canWrite  = useIsManager()   // create + edit
+  const canDelete = useIsAdmin()     // delete only
+
+  const form = useForm<FormValues>({
+    initialValues: { code: '', name: '', description: '', parentCategoryId: null },
     validate: {
-      name: (v: string) => (v.trim() ? null : 'Tên danh mục không được trống'),
-      code: (v: string) => (v.trim() ? null : 'Mã danh mục không được trống'),
+      code: (v) => (v.trim() ? null : 'Mã danh mục không được trống'),
+      name: (v) => (v.trim() ? null : 'Tên danh mục không được trống'),
     },
   })
 
@@ -44,24 +77,43 @@ export default function CategoryListPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (values: { code: string; name: string; parentCategoryId?: string }) => categoriesApi.create(values),
+    mutationFn: (values: FormValues) =>
+      categoriesApi.create({
+        code: values.code,
+        name: values.name,
+        description: values.description || null,
+        parentCategoryId: values.parentCategoryId || null,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['categories'] })
       notifications.show({ color: 'green', message: 'Tạo danh mục thành công' })
       close()
     },
-    onError: () => notifications.show({ color: 'red', message: 'Tạo danh mục thất bại' }),
+    onError: (err: unknown) => notifications.show({
+      color: 'red',
+      title: 'Tạo danh mục thất bại',
+      message: (err as { message?: string })?.message ?? 'Đã xảy ra lỗi',
+    }),
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, values }: { id: string; values: { code?: string; name?: string; parentCategoryId?: string } }) =>
-      categoriesApi.update(id, values),
+    mutationFn: ({ id, values }: { id: string; values: FormValues }) =>
+      categoriesApi.update(id, {
+        code: values.code,
+        name: values.name,
+        description: values.description || null,
+        parentCategoryId: values.parentCategoryId || null,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['categories'] })
       notifications.show({ color: 'green', message: 'Cập nhật thành công' })
       close()
     },
-    onError: () => notifications.show({ color: 'red', message: 'Cập nhật thất bại' }),
+    onError: (err: unknown) => notifications.show({
+      color: 'red',
+      title: 'Cập nhật thất bại',
+      message: (err as { message?: string })?.message ?? 'Đã xảy ra lỗi',
+    }),
   })
 
   const deleteMutation = useMutation({
@@ -70,13 +122,25 @@ export default function CategoryListPage() {
       void qc.invalidateQueries({ queryKey: ['categories'] })
       notifications.show({ color: 'green', message: 'Xóa thành công' })
     },
-    onError: () => notifications.show({ color: 'red', message: 'Xóa thất bại' }),
+    onError: (err: unknown) => notifications.show({
+      color: 'red',
+      title: 'Xóa thất bại',
+      message: (err as { message?: string })?.message ?? 'Đã xảy ra lỗi',
+    }),
   })
 
-  function handleOpen(category?: CategoryDto) {
-    if (category) {
-      setEditing(category)
-      form.setValues({ name: category.name, code: category.code ?? '', parentCategoryId: category.parentCategoryId ?? null })
+  function handleOpen(id?: string) {
+    if (id) {
+      // Find original (unmodified) category from tree to avoid indented display name
+      const original = findById(categories, id)
+      if (!original) return
+      setEditing(original)
+      form.setValues({
+        code: original.code,
+        name: original.name,
+        description: original.description ?? '',
+        parentCategoryId: original.parentCategoryId ?? null,
+      })
     } else {
       setEditing(null)
       form.reset()
@@ -84,50 +148,51 @@ export default function CategoryListPage() {
     open()
   }
 
-  function handleSubmit(values: { name: string; code: string; parentCategoryId: string | null }) {
-    const payload = { name: values.name, code: values.code, parentCategoryId: values.parentCategoryId ?? undefined }
+  function handleSubmit(values: FormValues) {
     if (editing) {
-      updateMutation.mutate({ id: editing.id, values: payload })
+      updateMutation.mutate({ id: editing.id, values })
     } else {
-      createMutation.mutate(payload)
+      createMutation.mutate(values)
     }
   }
 
-  function handleDelete(category: CategoryDto) {
+  function handleDelete(cat: FlatCategory) {
     openConfirm({
-      message: `Xóa danh mục "${category.name}"?`,
-      onConfirm: () => deleteMutation.mutate(category.id),
+      message: `Xóa danh mục "${cat.name}"?`,
+      onConfirm: () => deleteMutation.mutate(cat.id),
     })
   }
 
   const flat = flattenCategories(categories)
-  const filtered = (flat as Row[]).filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
+  const filtered = flat.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.code.toLowerCase().includes(search.toLowerCase())
   )
 
-  // For parent select: only top-level categories (no parent)
-  const parentOptions = categories
-    .filter((c) => !c.parentCategoryId && (!editing || c.id !== editing.id))
-    .map((c) => ({ value: c.id, label: c.name }))
+  // Parent select: top-level + second-level only (depth 0 and 1); exclude self + descendants when editing
+  const editingId = editing?.id
+  const parentOptions = flat
+    .filter((c) => c._depth <= 1 && c.id !== editingId)
+    .map((c) => ({ value: c.id, label: `${'\u00A0'.repeat(c._depth * 4)}${c._depth > 0 ? '↳ ' : ''}${c.name}` }))
 
-  const columns: DataTableColumn<Row>[] = [
+  const columns: DataTableColumn<FlatCategory>[] = [
     {
       key: 'name',
       header: 'Tên danh mục',
-      render: (row) => <Text size="sm">{row.name as string}</Text>,
+      render: (row) => <Text size="sm">{row._displayName}</Text>,
     },
     {
-      key: 'parentName',
-      header: 'Danh mục cha',
-      render: (row) => (row.parentName as string | undefined) ?? '—',
-    },
-    {
-      key: 'status',
-      header: 'Trạng thái',
+      key: 'code',
+      header: 'Mã',
       render: (row) => (
-        <Badge color={row.status === 'Active' ? 'green' : 'gray'} variant="light">
-          {row.status === 'Active' ? 'Hoạt động' : 'Ngừng'}
-        </Badge>
+        <Text size="sm" ff="monospace" c="blue">{row.code}</Text>
+      ),
+    },
+    {
+      key: 'description',
+      header: 'Mô tả',
+      render: (row) => (
+        <Text size="sm" c="dimmed" lineClamp={1}>{row.description ?? '—'}</Text>
       ),
     },
     {
@@ -137,16 +202,20 @@ export default function CategoryListPage() {
       width: 80,
       render: (row) => (
         <Group gap={4} justify="flex-end" wrap="nowrap">
-          <Tooltip label="Sửa">
-            <ActionIcon variant="subtle" onClick={() => handleOpen(row as CategoryDto)}>
-              <IconEdit size={16} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label="Xóa">
-            <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(row as CategoryDto)}>
-              <IconTrash size={16} />
-            </ActionIcon>
-          </Tooltip>
+          {canWrite && (
+            <Tooltip label="Sửa">
+              <ActionIcon variant="subtle" onClick={() => handleOpen(row.id)}>
+                <IconEdit size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          {canDelete && (
+            <Tooltip label="Xóa">
+              <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(row)}>
+                <IconTrash size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </Group>
       ),
     },
@@ -160,14 +229,16 @@ export default function CategoryListPage() {
         title="Danh mục hàng hóa"
         subtitle="Quản lý danh mục sản phẩm"
         actions={
-          <Button leftSection={<IconPlus size={16} />} onClick={() => handleOpen()}>
-            Thêm danh mục
-          </Button>
+          canWrite ? (
+            <Button leftSection={<IconPlus size={16} />} onClick={() => handleOpen()}>
+              Thêm danh mục
+            </Button>
+          ) : undefined
         }
       />
 
       <TextInput
-        placeholder="Tìm kiếm danh mục..."
+        placeholder="Tìm tên hoặc mã danh mục..."
         leftSection={<IconSearch size={16} />}
         value={search}
         onChange={(e) => setSearch(e.currentTarget.value)}
@@ -189,16 +260,22 @@ export default function CategoryListPage() {
         isSubmitting={isSaving}
       >
         <TextInput
+          label="Mã danh mục"
+          placeholder="FOOD, BVRG, FOOD-FRESH..."
+          required
+          {...form.getInputProps('code')}
+        />
+        <TextInput
           label="Tên danh mục"
-          placeholder="Đồ uống, Thực phẩm..."
+          placeholder="Thực phẩm, Đồ uống..."
           required
           {...form.getInputProps('name')}
         />
-        <TextInput
-          label="Mã danh mục"
-          placeholder="DM001"
-          required
-          {...form.getInputProps('code')}
+        <Textarea
+          label="Mô tả"
+          placeholder="Mô tả thêm về danh mục (tuỳ chọn)"
+          rows={3}
+          {...form.getInputProps('description')}
         />
         <Select
           label="Danh mục cha"

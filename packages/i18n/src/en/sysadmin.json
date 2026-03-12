@@ -91,6 +91,8 @@
   "refresh_expiry_desc": "Refresh token expiry time",
   "max_attempts_label": "Max Login Attempts",
   "max_attempts_desc": "Maximum failed login attempts",
+  "lockout_label": "Lockout Duration",
+  "lockout_desc": "Account lockout time after too many failed login attempts",
   "rate_limit_label": "Rate Limit",
   "rate_limit_desc": "Max requests per minute",
   "cors_origins_label": "CORS Allowed Origins",
@@ -113,6 +115,7 @@
   "job_processing": "Processing",
   "job_enqueued": "Enqueued",
   "job_scheduled": "Scheduled",
+  "change_history": "Change History",
   "audit_subtitle": "Monitor system activity",
   "audit_resource": "Resource",
   "audit_ip": "IP",
@@ -121,5 +124,13 @@
   "audit_clear_filters": "Clear filters",
   "audit_all_tenants": "All tenants",
   "audit_from_date": "From date",
-  "audit_to_date": "To date"
+  "audit_to_date": "To date",
+  "config_tab_settings": "Settings",
+  "config_tab_entries": "All Keys",
+  "config_entry_key": "Config Key",
+  "config_entry_value": "Value",
+  "config_entry_updated_at": "Updated At",
+  "config_entry_updated_by": "Updated By",
+  "config_entry_default": "Default",
+  "config_entry_customized": "Customized"
 }

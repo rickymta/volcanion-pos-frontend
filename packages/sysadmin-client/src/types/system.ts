@@ -29,8 +29,18 @@ export interface SystemConfigDto {
   jwtExpiryMinutes?: number
   refreshTokenExpiryDays?: number
   maxLoginAttempts?: number
+  lockoutMinutes?: number
   rateLimitPerMinute?: number
   corsAllowedOrigins?: string[]
+}
+
+export interface SystemConfigEntry {
+  id: string
+  key: string
+  value: string
+  description?: string | null
+  updatedAt: string
+  updatedBy?: string | null
 }
 
 export interface BackgroundJobDto {

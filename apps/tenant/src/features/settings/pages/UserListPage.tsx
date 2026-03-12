@@ -54,7 +54,7 @@ export default function UserListPage() {
 
   const { data: branches } = useQuery({
     queryKey: ['branches'],
-    queryFn: () => branchesApi.list(),
+    queryFn: () => branchesApi.list().then((r) => r.items),
   })
 
   const roleOptions = (roles ?? []).map((r) => ({ value: r.id, label: r.name }))

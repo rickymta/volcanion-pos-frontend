@@ -7,9 +7,20 @@ import type {
   UpdateProductRequest,
   UnitConversionDto,
   UnitDto,
+  UnitListParams,
+  CreateUnitRequest,
+  UpdateUnitRequest,
   CategoryDto,
+  CreateCategoryRequest,
+  UpdateCategoryRequest,
   WarehouseDto,
+  CreateWarehouseRequest,
+  UpdateWarehouseRequest,
+  WarehouseListParams,
   BranchDto,
+  CreateBranchRequest,
+  UpdateBranchRequest,
+  BranchListParams,
   CustomerDto,
   CreateCustomerRequest,
   UpdateCustomerRequest,
@@ -22,13 +33,13 @@ import type {
 
 // ─── Units ────────────────────────────────────────────────────────────────────
 export const unitsApi = {
-  list: () =>
-    apiClient.get<PagedResult<UnitDto>>('/units', { params: { pageSize: 999 } }).then((r) => r.items),
+  list: (params?: UnitListParams) =>
+    apiClient.get<PagedResult<UnitDto>>('/units', { params }),
   getById: (id: string) =>
     apiClient.get<UnitDto>(`/units/${id}`),
-  create: (body: { code: string; name: string; description?: string }) =>
+  create: (body: CreateUnitRequest) =>
     apiClient.post<UnitDto>('/units', body),
-  update: (id: string, body: { code?: string; name?: string; description?: string }) =>
+  update: (id: string, body: UpdateUnitRequest) =>
     apiClient.put<UnitDto>(`/units/${id}`, body),
   delete: (id: string) =>
     apiClient.delete(`/units/${id}`),
@@ -36,14 +47,15 @@ export const unitsApi = {
 
 // ─── Categories ───────────────────────────────────────────────────────────────
 export const categoriesApi = {
-  /** Backend returns nested tree array, NOT PagedResult */
+  /** Backend returns nested tree array wrapped in ApiEnvelope */
   list: () =>
     apiClient.get<CategoryDto[]>('/categories'),
   getById: (id: string) =>
     apiClient.get<CategoryDto>(`/categories/${id}`),
-  create: (body: { code: string; name: string; description?: string; parentCategoryId?: string }) =>
+  create: (body: CreateCategoryRequest) =>
     apiClient.post<CategoryDto>('/categories', body),
-  update: (id: string, body: { name?: string; description?: string; parentCategoryId?: string }) =>
+  /** PUT requires code + name (both mandatory per API spec) */
+  update: (id: string, body: UpdateCategoryRequest) =>
     apiClient.put<CategoryDto>(`/categories/${id}`, body),
   delete: (id: string) =>
     apiClient.delete(`/categories/${id}`),
@@ -51,13 +63,14 @@ export const categoriesApi = {
 
 // ─── Warehouses ───────────────────────────────────────────────────────────────
 export const warehousesApi = {
-  list: () =>
-    apiClient.get<PagedResult<WarehouseDto>>('/warehouses', { params: { pageSize: 999 } }).then((r) => r.items),
+  list: (params?: WarehouseListParams) =>
+    apiClient.get<PagedResult<WarehouseDto>>('/warehouses', { params: { pageSize: 999, ...params } }),
   getById: (id: string) =>
     apiClient.get<WarehouseDto>(`/warehouses/${id}`),
-  create: (body: { code: string; name: string; address?: string; branchId?: string }) =>
+  create: (body: CreateWarehouseRequest) =>
     apiClient.post<WarehouseDto>('/warehouses', body),
-  update: (id: string, body: { name?: string; address?: string; branchId?: string }) =>
+  /** PUT: code cannot be changed. Requires name + status. */
+  update: (id: string, body: UpdateWarehouseRequest) =>
     apiClient.put<WarehouseDto>(`/warehouses/${id}`, body),
   delete: (id: string) =>
     apiClient.delete(`/warehouses/${id}`),
@@ -65,15 +78,16 @@ export const warehousesApi = {
 
 // ─── Branches ─────────────────────────────────────────────────────────────────
 export const branchesApi = {
-  list: () =>
-    apiClient.get<PagedResult<BranchDto>>('/branches', { params: { pageSize: 999 } }).then((r) => r.items),
-  getById: (id: string) =>
-    apiClient.get<BranchDto>(`/branches/${id}`),
+  list: (params?: BranchListParams) =>
+    apiClient.get<PagedResult<BranchDto>>('/branches', { params: { pageSize: 999, ...params } }),
   getTree: () =>
     apiClient.get<BranchDto[]>('/branches/tree'),
-  create: (body: { code: string; name: string; address?: string; phone?: string; parentBranchId?: string }) =>
+  getById: (id: string) =>
+    apiClient.get<BranchDto>(`/branches/${id}`),
+  create: (body: CreateBranchRequest) =>
     apiClient.post<BranchDto>('/branches', body),
-  update: (id: string, body: { name?: string; address?: string; phone?: string }) =>
+  /** PUT: requires code + name + status. parentBranchId can be changed. */
+  update: (id: string, body: UpdateBranchRequest) =>
     apiClient.put<BranchDto>(`/branches/${id}`, body),
   delete: (id: string) =>
     apiClient.delete(`/branches/${id}`),

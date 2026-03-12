@@ -58,5 +58,5 @@ export type EntityStatus = 'Active' | 'Inactive'
 /** Backend: 0=Retail, 1=Vat, 2=Electronic */
 export type InvoiceType = 'Retail' | 'Vat' | 'Electronic'
 
-/** Backend: 0=Average, 1=FIFO */
-export type CostingMethod = 'Average' | 'FIFO'
+/** Backend enum: Fifo = 0, Average = 1 */
+export type CostingMethod = number

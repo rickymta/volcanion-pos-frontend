@@ -17,6 +17,7 @@ import { AppProvider } from '@pos/ui'
 import { initI18n } from '@pos/i18n'
 import { router } from './routes'
 import { queryClient } from './lib/queryClient'
+import { TenantBoundary } from './features/auth/components/TenantBoundary'
 
 initI18n('vi')
 
@@ -27,7 +28,9 @@ createRoot(root).render(
   <StrictMode>
     <AppProvider defaultColorScheme="dark">
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <TenantBoundary>
+          <RouterProvider router={router} />
+        </TenantBoundary>
       </QueryClientProvider>
     </AppProvider>
   </StrictMode>

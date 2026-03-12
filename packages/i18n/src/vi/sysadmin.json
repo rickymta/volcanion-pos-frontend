@@ -91,6 +91,8 @@
   "refresh_expiry_desc": "Thời gian hết hạn refresh token",
   "max_attempts_label": "Max Login Attempts",
   "max_attempts_desc": "Số lần đăng nhập thất bại tối đa",
+  "lockout_label": "Lockout Duration",
+  "lockout_desc": "Thời gian khóa tài khoản sau khi đăng nhập sai nhiều lần",
   "rate_limit_label": "Rate Limit",
   "rate_limit_desc": "Số request tối đa mỗi phút",
   "cors_origins_label": "CORS Allowed Origins",
@@ -113,6 +115,7 @@
   "job_processing": "Đang chạy",
   "job_enqueued": "Chờ chạy",
   "job_scheduled": "Đã lên lịch",
+  "change_history": "Lịch sử chỉnh sừa",
   "audit_subtitle": "Theo dõi hoạt động hệ thống",
   "audit_resource": "Tài nguyên",
   "audit_ip": "IP",
@@ -121,5 +124,13 @@
   "audit_clear_filters": "Xóa lọc",
   "audit_all_tenants": "Tất cả tenant",
   "audit_from_date": "Từ ngày",
-  "audit_to_date": "Đến ngày"
+  "audit_to_date": "Đến ngày",
+  "config_tab_settings": "Cài đặt",
+  "config_tab_entries": "Tất cả khóa",
+  "config_entry_key": "Khóa cấu hình",
+  "config_entry_value": "Giá trị",
+  "config_entry_updated_at": "Cập nhật lúc",
+  "config_entry_updated_by": "Cập nhật bởi",
+  "config_entry_default": "Mặc định",
+  "config_entry_customized": "Đã chỉnh sửa"
 }

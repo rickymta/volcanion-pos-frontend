@@ -15,8 +15,15 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,         // lắng nghe mọi hostname, kể cả *.localhost
     port: 3002,
-    strictPort: true, // Báo lỗi ngay nếu port 3002 bị chiếm, không tự chuyển sang port khác
+    strictPort: true,
+    allowedHosts: [
+      'localhost',
+      '.localhost',  // *.localhost — Chrome/Firefox hỗ trợ natively
+      '.pos.local',
+      '.nip.io',
+    ],
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

@@ -31,29 +31,18 @@ export default function LoginPage() {
         : 3600
       // Step 2: Set tokens so interceptor sends Authorization header on next call
       useAuthStore.getState().setTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, expiresIn })
-      // Step 3: Fetch user profile
+      // Step 3: Fetch user profile (includes roles & permissions as objects)
       const dto = await authApi.me(tenantId)
-      // Step 4: Decode JWT for roles & permissions
-      let roles: string[] = []
-      let permissions: string[] = []
-      let branchId: string | undefined
-      try {
-        const payload = JSON.parse(atob(tokens.accessToken.split('.')[1] ?? '')) as {
-          roles?: string[]; permissions?: string[]; branchId?: string
-        }
-        roles = payload.roles ?? []
-        permissions = payload.permissions ?? []
-        branchId = payload.branchId
-      } catch { /* ignore */ }
+      // Step 4: Map DTO  → UserProfile (extract string arrays for role/permission checks)
       const user: UserProfile = {
         id: dto.id,
         email: dto.email ?? dto.username,
         fullName: dto.fullName,
         tenantId: dto.tenantId,
-        branchId: branchId ?? dto.branchIds?.[0],
-        roles,
-        permissions,
-        isActive: dto.status === 'Active',
+        branchId: dto.isAllBranches ? undefined : dto.branchIds?.[0],
+        roles: dto.roles.map((r) => r.name),
+        permissions: dto.permissions.map((p) => p.code),
+        isActive: dto.status === 1,
       }
       return { user, tokens: { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, expiresIn } }
     },

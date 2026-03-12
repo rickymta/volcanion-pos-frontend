@@ -25,17 +25,36 @@ export interface RefreshTokenRequest {
   refreshToken: string
 }
 
-/** Matches GET /api/v1/auth/me response */
+/** Role object returned inside UserDto from /auth/me and /auth/users */
+export interface RoleSummaryDto {
+  id: string
+  name: string
+  isSystemRole: boolean
+}
+
+/** Permission object returned inside UserDto from /auth/me */
+export interface PermissionSummaryDto {
+  id: string
+  code: string
+  name: string
+  group: string
+  description: string | null
+}
+
+/** Matches GET /api/v1/auth/me (and /auth/users) response */
 export interface UserDto {
   id: string
   username: string
   email?: string
   fullName: string
-  status: 'Active' | 'Inactive'
+  /** 1 = Active, 0 = Inactive */
+  status: number
   tenantId: string
   isAllBranches: boolean
   branchIds: string[]
-  roleIds: string[]
+  roles: RoleSummaryDto[]
+  /** Only populated on /auth/me — empty array on list endpoints */
+  permissions: PermissionSummaryDto[]
 }
 
 export interface ChangePasswordRequest {

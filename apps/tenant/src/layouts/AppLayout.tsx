@@ -35,6 +35,7 @@ export function AppLayout() {
         { label: t('nav.products'), href: '/master/products', icon: <IconPackage size={16} /> },
         { label: t('nav.customers'), href: '/master/customers', icon: <IconUsers size={16} /> },
         { label: t('nav.suppliers'), href: '/master/suppliers', icon: <IconTruck size={16} /> },
+        { label: t('nav.branches'), href: '/master/branches', icon: <IconBuildingStore size={16} /> },
         { label: t('nav.warehouses'), href: '/master/warehouses', icon: <IconBuildingWarehouse size={16} /> },
         { label: t('nav.categories'), href: '/master/categories', icon: <IconCategory size={16} /> },
         { label: t('nav.units'), href: '/master/units', icon: <IconRuler size={16} /> },

@@ -37,7 +37,7 @@ export default function InventoryTransactionsPage() {
 
   const { data: warehousesData } = useQuery({
     queryKey: ['warehouses-all'],
-    queryFn: () => warehousesApi.list(),
+    queryFn: () => warehousesApi.list().then((r) => r.items),
   })
 
   const { data: productsData } = useQuery({

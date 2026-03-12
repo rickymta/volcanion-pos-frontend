@@ -13,7 +13,16 @@ export interface ApiError {
 
 export type TenantStatus = 'Active' | 'Inactive' | 'Suspended'
 
-export type SubscriptionPlan = 'Free' | 'Basic' | 'Pro' | 'Enterprise'
+export type SubscriptionPlan = 'Free' | 'Basic' | 'Standard' | 'Pro' | 'Enterprise'
+
+export interface TenantChangeHistoryEntry {
+  id: string
+  action: 'CREATE' | 'UPDATE' | 'DELETE'
+  actorEmail: string
+  details: string
+  ipAddress: string
+  changedAt: string
+}
 
 export interface TenantDto {
   id: string
@@ -37,6 +46,7 @@ export interface TenantDetailDto extends TenantDto {
   orderCount: number
   productCount: number
   lastActivityAt?: string
+  changeHistory?: TenantChangeHistoryEntry[]
 }
 
 export interface TenantListParams {

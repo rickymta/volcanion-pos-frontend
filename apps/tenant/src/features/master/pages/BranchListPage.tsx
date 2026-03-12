@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Stack, Group, TextInput, Badge, ActionIcon, Collapse, Text, Button,
+  Stack, Group, TextInput, Badge, ActionIcon, Collapse, Text, Button, Select, Switch,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
@@ -10,45 +10,37 @@ import { branchesApi } from '@pos/api-client'
 import type { BranchDto } from '@pos/api-client'
 import { PageHeader, DrawerForm } from '@pos/ui'
 import { openConfirm } from '@pos/ui'
+import { useIsAdmin } from '@pos/auth'
 
 interface FormValues {
+  code: string
   name: string
   address: string
   phone: string
-  code: string
   parentBranchId: string
+  status: number
 }
 
-// Build tree from flat list (API may return flat)
-function buildTree(items: BranchDto[]): BranchDto[] {
-  if (items.every((i) => !i.parentBranchId)) return items.map((i) => ({ ...i, children: [] }))
-  if (items.some((i) => i.children && i.children.length > 0)) return items
-  const map = new Map<string, BranchDto>()
-  items.forEach((i) => map.set(i.id, { ...i, children: [] }))
-  const roots: BranchDto[] = []
-  map.forEach((item) => {
-    if (item.parentBranchId && map.has(item.parentBranchId)) {
-      map.get(item.parentBranchId)!.children!.push(item)
-    } else {
-      roots.push(item)
-    }
-  })
-  return roots
+/** Flatten a branch tree into a flat array (for parent select options) */
+function flattenTree(branches: BranchDto[]): BranchDto[] {
+  return branches.flatMap((b) => [b, ...flattenTree(b.subBranches ?? [])])
 }
 
 function BranchRow({
   branch,
   depth,
+  canAdmin,
   onEdit,
   onDelete,
 }: {
   branch: BranchDto
   depth: number
+  canAdmin: boolean
   onEdit: (b: BranchDto) => void
   onDelete: (b: BranchDto) => void
 }) {
   const [open, setOpen] = useState(true)
-  const hasChildren = (branch.children ?? []).length > 0
+  const hasChildren = (branch.subBranches ?? []).length > 0
 
   return (
     <>
@@ -72,23 +64,26 @@ function BranchRow({
             {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
           </ActionIcon>
           <Text size="sm" fw={hasChildren ? 600 : 400}>{branch.name}</Text>
+          <Text size="xs" c="blue" ff="monospace">{branch.code}</Text>
           {branch.address && <Text size="xs" c="dimmed">— {branch.address}</Text>}
           {branch.phone && <Text size="xs" c="dimmed">📞 {branch.phone}</Text>}
-          {branch.status === 'Inactive' && <Badge size="xs" color="gray">Ngừng</Badge>}
+          {branch.status === 0 && <Badge size="xs" color="gray">Ngừng</Badge>}
         </Group>
-        <Group gap="xs">
-          <ActionIcon size="sm" variant="subtle" onClick={() => onEdit(branch)}>
-            <IconEdit size={14} />
-          </ActionIcon>
-          <ActionIcon size="sm" color="red" variant="subtle" onClick={() => onDelete(branch)}>
-            <IconTrash size={14} />
-          </ActionIcon>
-        </Group>
+        {canAdmin && (
+          <Group gap="xs">
+            <ActionIcon size="sm" variant="subtle" onClick={() => onEdit(branch)}>
+              <IconEdit size={14} />
+            </ActionIcon>
+            <ActionIcon size="sm" color="red" variant="subtle" onClick={() => onDelete(branch)}>
+              <IconTrash size={14} />
+            </ActionIcon>
+          </Group>
+        )}
       </Group>
       {hasChildren && (
         <Collapse in={open}>
-          {(branch.children ?? []).map((child) => (
-            <BranchRow key={child.id} branch={child} depth={depth + 1} onEdit={onEdit} onDelete={onDelete} />
+          {(branch.subBranches ?? []).map((child) => (
+            <BranchRow key={child.id} branch={child} depth={depth + 1} canAdmin={canAdmin} onEdit={onEdit} onDelete={onDelete} />
           ))}
         </Collapse>
       )}
@@ -98,49 +93,67 @@ function BranchRow({
 
 export default function BranchListPage() {
   const qc = useQueryClient()
+  const canAdmin = useIsAdmin()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
   const form = useForm<FormValues>({
-    initialValues: { name: '', address: '', phone: '', code: '', parentBranchId: '' },
-    validate: { name: (v) => (!v ? 'Nhập tên chi nhánh' : null), code: (v) => (!v ? 'Nhập mã chi nhánh' : null) },
+    initialValues: { code: '', name: '', address: '', phone: '', parentBranchId: '', status: 1 },
+    validate: {
+      name: (v) => (!v.trim() ? 'Nhập tên chi nhánh' : null),
+      code: (v) => (!v.trim() ? 'Nhập mã chi nhánh' : null),
+    },
   })
 
-  const { data: rawBranches, isLoading } = useQuery({
-    queryKey: ['branches'],
-    queryFn: () => branchesApi.list(),
+  // Use the tree endpoint — no client-side tree building needed
+  const { data: tree = [], isLoading } = useQuery({
+    queryKey: ['branches', 'tree'],
+    queryFn: () => branchesApi.getTree(),
   })
 
-  const branches = buildTree(rawBranches ?? [])
-  const flatBranches = rawBranches ?? []
-
+  const flatBranches = flattenTree(tree)
   const parentOptions = [
     { value: '', label: '— Không có (gốc) —' },
-    ...flatBranches.map((b) => ({ value: b.id, label: b.name })),
+    ...flatBranches.map((b) => ({ value: b.id, label: `${b.name} (${b.code})` })),
   ]
 
   const createMutation = useMutation({
     mutationFn: (v: FormValues) =>
-      branchesApi.create({ name: v.name, code: v.code, address: v.address || undefined, phone: v.phone || undefined, parentBranchId: v.parentBranchId || undefined }),
+      branchesApi.create({
+        code: v.code,
+        name: v.name,
+        address: v.address || null,
+        phone: v.phone || null,
+        parentBranchId: v.parentBranchId || null,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['branches'] })
       notifications.show({ color: 'green', message: 'Tạo chi nhánh thành công' })
       setDrawerOpen(false)
       form.reset()
     },
-    onError: () => notifications.show({ color: 'red', message: 'Tạo chi nhánh thất bại' }),
+    onError: (err: unknown) =>
+      notifications.show({ color: 'red', message: (err as { message?: string }).message ?? 'Tạo chi nhánh thất bại' }),
   })
 
   const updateMutation = useMutation({
     mutationFn: (v: FormValues) =>
-      branchesApi.update(editId!, { name: v.name, address: v.address || undefined, phone: v.phone || undefined }),
+      branchesApi.update(editId!, {
+        code: v.code,
+        name: v.name,
+        address: v.address || null,
+        phone: v.phone || null,
+        parentBranchId: v.parentBranchId || null,
+        status: v.status,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['branches'] })
       notifications.show({ color: 'green', message: 'Cập nhật thành công' })
       setDrawerOpen(false)
       form.reset()
     },
-    onError: () => notifications.show({ color: 'red', message: 'Cập nhật thất bại' }),
+    onError: (err: unknown) =>
+      notifications.show({ color: 'red', message: (err as { message?: string }).message ?? 'Cập nhật thất bại' }),
   })
 
   const deleteMutation = useMutation({
@@ -149,7 +162,8 @@ export default function BranchListPage() {
       void qc.invalidateQueries({ queryKey: ['branches'] })
       notifications.show({ color: 'green', message: 'Đã xóa chi nhánh' })
     },
-    onError: () => notifications.show({ color: 'red', message: 'Xóa thất bại' }),
+    onError: (err: unknown) =>
+      notifications.show({ color: 'red', message: (err as { message?: string }).message ?? 'Xóa thất bại' }),
   })
 
   function openCreate() {
@@ -160,14 +174,21 @@ export default function BranchListPage() {
 
   function openEdit(b: BranchDto) {
     setEditId(b.id)
-    form.setValues({ name: b.name, address: b.address ?? '', phone: b.phone ?? '', code: b.code ?? '', parentBranchId: b.parentBranchId ?? '' })
+    form.setValues({
+      code: b.code,
+      name: b.name,
+      address: b.address ?? '',
+      phone: b.phone ?? '',
+      parentBranchId: b.parentBranchId ?? '',
+      status: b.status,
+    })
     setDrawerOpen(true)
   }
 
   function handleDelete(b: BranchDto) {
     openConfirm({
       title: 'Xóa chi nhánh',
-      message: `Bạn có chắc muốn xóa "${b.name}"?`,
+      message: `Xóa "${b.name}"? Không thể xóa nếu còn chi nhánh con hoặc kho liên kết.`,
       onConfirm: () => deleteMutation.mutate(b.id),
     })
   }
@@ -183,9 +204,11 @@ export default function BranchListPage() {
         title="Chi nhánh"
         subtitle="Quản lý hệ thống chi nhánh"
         actions={
-          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
-            Thêm chi nhánh
-          </Button>
+          canAdmin ? (
+            <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
+              Thêm chi nhánh
+            </Button>
+          ) : undefined
         }
       />
 
@@ -197,15 +220,15 @@ export default function BranchListPage() {
         justify="space-between"
       >
         <Text size="xs" c="dimmed" fw={600}>Tên chi nhánh</Text>
-        <Text size="xs" c="dimmed" fw={600}>Thao tác</Text>
+        {canAdmin && <Text size="xs" c="dimmed" fw={600}>Thao tác</Text>}
       </Group>
 
-      {!isLoading && branches.length === 0 && (
+      {!isLoading && tree.length === 0 && (
         <Text c="dimmed" ta="center" py="xl">Chưa có chi nhánh</Text>
       )}
 
-      {branches.map((b) => (
-        <BranchRow key={b.id} branch={b} depth={0} onEdit={openEdit} onDelete={handleDelete} />
+      {tree.map((b) => (
+        <BranchRow key={b.id} branch={b} depth={0} canAdmin={canAdmin} onEdit={openEdit} onDelete={handleDelete} />
       ))}
 
       <DrawerForm
@@ -216,46 +239,22 @@ export default function BranchListPage() {
         isLoading={createMutation.isPending || updateMutation.isPending}
       >
         <Stack gap="sm">
-          <TextInput
-            label="Tên chi nhánh"
-            placeholder="Chi nhánh Hà Nội"
-            {...form.getInputProps('name')}
-            required
+          <TextInput label="Tên chi nhánh" placeholder="Chi nhánh Hà Nội" required {...form.getInputProps('name')} />
+          <TextInput label="Mã chi nhánh" placeholder="HN01" required {...form.getInputProps('code')} />
+          <TextInput label="Địa chỉ" placeholder="123 Đường ABC..." {...form.getInputProps('address')} />
+          <TextInput label="Điện thoại" placeholder="0901 234 567" {...form.getInputProps('phone')} />
+          <Select
+            label="Chi nhánh cha"
+            data={parentOptions}
+            value={form.values.parentBranchId}
+            onChange={(v) => form.setFieldValue('parentBranchId', v ?? '')}
           />
-          <TextInput
-            label="Mã chi nhánh"
-            placeholder="HN01"
-            {...form.getInputProps('code')}
-            required
-          />
-          <TextInput
-            label="Địa chỉ"
-            placeholder="123 Đường ABC, Quận 1, TP.HCM"
-            {...form.getInputProps('address')}
-          />
-          <TextInput
-            label="Điện thoại"
-            placeholder="0901 234 567"
-            {...form.getInputProps('phone')}
-          />
-          {!editId && (
-            <select
-              style={{
-                width: '100%',
-                padding: '8px',
-                borderRadius: 4,
-                border: '1px solid var(--mantine-color-dark-4)',
-                background: 'var(--mantine-color-dark-6)',
-                color: 'var(--mantine-color-white)',
-                fontSize: 14,
-              }}
-              value={form.values.parentBranchId}
-              onChange={(e) => form.setFieldValue('parentBranchId', e.target.value)}
-            >
-              {parentOptions.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+          {editId && (
+            <Switch
+              label="Hoạt động"
+              checked={form.values.status === 1}
+              onChange={(e) => form.setFieldValue('status', e.currentTarget.checked ? 1 : 0)}
+            />
           )}
         </Stack>
       </DrawerForm>

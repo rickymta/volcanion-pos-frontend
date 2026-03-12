@@ -41,7 +41,7 @@ export default function PosTerminalPage() {
 
   const { data: warehouses } = useQuery({
     queryKey: ['pos-warehouses'],
-    queryFn: () => warehousesApi.list(),
+    queryFn: () => warehousesApi.list({ pageSize: 999 }).then((r) => r.items),
   })
 
   const { data: customers } = useQuery({

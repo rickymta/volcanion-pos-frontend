@@ -26,7 +26,7 @@ export default function InventoryAdjustPage() {
 
   const { data: warehouses } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => warehousesApi.list(),
+    queryFn: () => warehousesApi.list().then((r) => r.items),
   })
 
   const { data: products } = useQuery({
