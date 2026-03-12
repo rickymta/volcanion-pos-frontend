@@ -1,0 +1,24 @@
+{
+  "name": "pos-frontend",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:tenant": "turbo run dev --filter=@pos/tenant",
+    "dev:sysadmin": "turbo run dev --filter=@pos/sysadmin",
+    "dev:pos": "turbo run dev --filter=@pos/pos",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rimraf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "rimraf": "^6.0.1"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.15.4"
+}

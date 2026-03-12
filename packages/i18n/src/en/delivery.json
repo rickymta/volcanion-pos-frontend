@@ -1,0 +1,23 @@
+{
+  "delivery": "Delivery",
+  "delivery_orders": "Delivery Orders",
+  "delivery_order": "Delivery Order",
+  "delivery_code": "Code",
+  "delivery_date": "Delivery Date",
+  "linked_so": "Sales Order",
+  "customer": "Customer",
+  "delivery_address": "Delivery Address",
+  "receiver_name": "Receiver Name",
+  "proof_image": "Proof Image",
+  "delivery_note": "Note",
+  "start_delivery": "Start Delivery",
+  "complete_delivery": "Complete Delivery",
+  "fail_delivery": "Mark as Failed",
+  "cancel_delivery": "Cancel",
+  "fail_reason": "Failure Reason",
+  "pending": "Pending",
+  "in_transit": "In Transit",
+  "delivered": "Delivered",
+  "failed": "Failed",
+  "cancelled": "Cancelled"
+}

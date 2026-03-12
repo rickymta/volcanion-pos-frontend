@@ -1,0 +1,24 @@
+{
+  "name": "@pos/i18n",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "i18next": "^24.2.2",
+    "react-i18next": "^15.4.0"
+  },
+  "devDependencies": {
+    "@pos/config": "workspace:*",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

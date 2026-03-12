@@ -1,0 +1,23 @@
+{
+  "delivery": "Giao hàng",
+  "delivery_orders": "Đơn giao hàng",
+  "delivery_order": "Đơn giao hàng",
+  "delivery_code": "Mã giao hàng",
+  "delivery_date": "Ngày giao",
+  "linked_so": "Đơn bán gốc",
+  "customer": "Khách hàng",
+  "delivery_address": "Địa chỉ giao",
+  "receiver_name": "Người nhận",
+  "proof_image": "Ảnh xác nhận",
+  "delivery_note": "Ghi chú giao hàng",
+  "start_delivery": "Bắt đầu giao",
+  "complete_delivery": "Hoàn thành giao",
+  "fail_delivery": "Giao thất bại",
+  "cancel_delivery": "Hủy đơn giao",
+  "fail_reason": "Lý do thất bại",
+  "pending": "Chờ giao",
+  "in_transit": "Đang giao",
+  "delivered": "Đã giao",
+  "failed": "Thất bại",
+  "cancelled": "Đã hủy"
+}

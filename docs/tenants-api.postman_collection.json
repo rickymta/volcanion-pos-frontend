@@ -1,0 +1,373 @@
+{
+  "info": {
+    "name": "POS SysAdmin — Tenant Management",
+    "_postman_id": "pos-sysadmin-tenants-v1",
+    "description": "CRUD endpoints for tenant management via POS.SysAdmin.Api.\nBase URL: {{sysadmin_url}}/super/v1/tenants\n\nAll requests (except public) require:\n  Authorization: Bearer {{access_token}}\n\nGet a token first via POST /super/v1/auth/login.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "sysadmin_url",
+      "value": "https://localhost:5101",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "description": "Filled automatically by the Login request pre-script or set manually."
+    },
+    {
+      "key": "tenant_id",
+      "value": "",
+      "type": "string",
+      "description": "Set after creating or looking up a tenant."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Login to obtain access_token before calling tenant endpoints.",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.accessToken) {",
+                  "        pm.collectionVariables.set('access_token', body.accessToken);",
+                  "        console.log('access_token saved.');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"superadmin\",\n  \"password\": \"SuperAdmin@123\"\n}"
+            },
+            "url": {
+              "raw": "{{sysadmin_url}}/super/v1/auth/login",
+              "host": ["{{sysadmin_url}}"],
+              "path": ["super", "v1", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{sysadmin_url}}/super/v1/tenants?page=1&pageSize=20",
+              "host": ["{{sysadmin_url}}"],
+              "path": ["super", "v1", "tenants"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Items per page (default: 20)"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search by name or domain",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "Active",
+                  "description": "Filter by status: Active | Inactive | Suspended",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns a paginated list of tenants with summary info and user counts.\n\nResponse: PagedResult<TenantDto>"
+          },
+          "response": [
+            {
+              "name": "200 OK — example",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"10000000-0000-0000-0000-000000000001\",\n      \"name\": \"Demo Company\",\n      \"slug\": \"demo\",\n      \"taxCode\": \"0123456789\",\n      \"phone\": \"028 1234 5678\",\n      \"email\": \"demo@pos.local\",\n      \"subscriptionPlan\": \"Pro\",\n      \"subscriptionExpiry\": null,\n      \"status\": \"Active\",\n      \"timeZone\": \"Asia/Ho_Chi_Minh\",\n      \"currency\": \"VND\",\n      \"userCount\": 3,\n      \"createdAt\": \"2026-03-11T00:00:00Z\"\n    }\n  ],\n  \"totalCount\": 1,\n  \"page\": 1,\n  \"pageSize\": 20,\n  \"totalPages\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Tenant by ID",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Fallback to demo tenant if tenant_id not set",
+                  "if (!pm.collectionVariables.get('tenant_id')) {",
+                  "    pm.collectionVariables.set('tenant_id', '10000000-0000-0000-0000-000000000001');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{sysadmin_url}}/super/v1/tenants/{{tenant_id}}",
+              "host": ["{{sysadmin_url}}"],
+              "path": ["super", "v1", "tenants", "{{tenant_id}}"]
+            },
+            "description": "Returns full tenant detail including address, subscription info, and operational statistics.\n\nResponse: TenantDetailDto"
+          },
+          "response": [
+            {
+              "name": "200 OK — example",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"10000000-0000-0000-0000-000000000001\",\n  \"name\": \"Demo Company\",\n  \"slug\": \"demo\",\n  \"taxCode\": \"0123456789\",\n  \"address\": \"123 Nguyễn Huệ, Quận 1, TP.HCM\",\n  \"phone\": \"028 1234 5678\",\n  \"email\": \"demo@pos.local\",\n  \"subscriptionPlan\": \"Pro\",\n  \"subscriptionExpiry\": null,\n  \"status\": \"Active\",\n  \"timeZone\": \"Asia/Ho_Chi_Minh\",\n  \"currency\": \"VND\",\n  \"adminEmail\": null,\n  \"userCount\": 3,\n  \"createdAt\": \"2026-03-11T00:00:00Z\",\n  \"orderCount\": 120,\n  \"productCount\": 45,\n  \"lastActivityAt\": \"2026-03-12T08:30:00Z\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Tenant 00000000-0000-0000-0000-000000000000 not found.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('tenant_id', body.id);",
+                  "        console.log('tenant_id saved:', body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Công ty TNHH ABC\",\n  \"slug\": \"cong-ty-abc\",\n  \"taxCode\": \"0987654321\",\n  \"address\": \"456 Lê Lợi, Quận 1, TP.HCM\",\n  \"phone\": \"028 9876 5432\",\n  \"email\": \"contact@abc.vn\",\n  \"subscriptionPlan\": \"Pro\",\n  \"subscriptionExpiry\": null,\n  \"timeZone\": \"Asia/Ho_Chi_Minh\",\n  \"currency\": \"VND\",\n  \"adminEmail\": \"admin@abc.vn\",\n  \"adminPassword\": \"Admin@123456\",\n  \"adminFullName\": \"Nguyễn Văn A\"\n}"
+            },
+            "url": {
+              "raw": "{{sysadmin_url}}/super/v1/tenants",
+              "host": ["{{sysadmin_url}}"],
+              "path": ["super", "v1", "tenants"]
+            },
+            "description": "Creates a new tenant and provisions its dedicated database in one transaction.\n\nAlso creates the initial admin user inside the tenant's database.\n\n**Required fields:** `name`, `adminEmail`, `adminPassword`, `adminFullName`\n**Slug rules:** lowercase `a-z`, `0-9`, `-` (hyphen). Must be unique.\n\nResponse: 201 Created with TenantDto"
+          },
+          "response": [
+            {
+              "name": "201 Created — example",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Công ty TNHH ABC\",\n  \"slug\": \"cong-ty-abc\",\n  \"taxCode\": \"0987654321\",\n  \"phone\": \"028 9876 5432\",\n  \"email\": \"contact@abc.vn\",\n  \"subscriptionPlan\": \"Pro\",\n  \"subscriptionExpiry\": null,\n  \"status\": \"Active\",\n  \"timeZone\": \"Asia/Ho_Chi_Minh\",\n  \"currency\": \"VND\",\n  \"userCount\": 1,\n  \"createdAt\": \"2026-03-12T10:00:00Z\"\n}"
+            },
+            {
+              "name": "400 Bad Request — slug taken",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Slug 'cong-ty-abc' is already in use.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Công ty TNHH ABC (Updated)\",\n  \"taxCode\": \"0987654321\",\n  \"address\": \"789 Nguyễn Trãi, Quận 5, TP.HCM\",\n  \"phone\": \"028 1111 2222\",\n  \"email\": \"new-contact@abc.vn\",\n  \"subscriptionPlan\": \"Enterprise\",\n  \"subscriptionExpiry\": \"2027-12-31T00:00:00Z\",\n  \"timeZone\": \"Asia/Ho_Chi_Minh\",\n  \"currency\": \"VND\",\n  \"status\": \"Active\"\n}"
+            },
+            "url": {
+              "raw": "{{sysadmin_url}}/super/v1/tenants/{{tenant_id}}",
+              "host": ["{{sysadmin_url}}"],
+              "path": ["super", "v1", "tenants", "{{tenant_id}}"]
+            },
+            "description": "Partial update — only fields present in the body are applied.\n\n**Note:** `slug` cannot be changed after creation.\n\n`status` values: `Active` | `Inactive` | `Suspended`\n\nChanging status to `Suspended` blocks all tenant users from logging in."
+          },
+          "response": [
+            {
+              "name": "200 OK — example",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Công ty TNHH ABC (Updated)\",\n  \"slug\": \"cong-ty-abc\",\n  \"taxCode\": \"0987654321\",\n  \"phone\": \"028 1111 2222\",\n  \"email\": \"new-contact@abc.vn\",\n  \"subscriptionPlan\": \"Enterprise\",\n  \"subscriptionExpiry\": \"2027-12-31T00:00:00Z\",\n  \"status\": \"Active\",\n  \"timeZone\": \"Asia/Ho_Chi_Minh\",\n  \"currency\": \"VND\",\n  \"userCount\": 5,\n  \"createdAt\": \"2026-03-12T10:00:00Z\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Tenant 3fa85f64-5717-4562-b3fc-2c963f66afa6 not found.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Suspend Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Suspended\"\n}"
+            },
+            "url": {
+              "raw": "{{sysadmin_url}}/super/v1/tenants/{{tenant_id}}",
+              "host": ["{{sysadmin_url}}"],
+              "path": ["super", "v1", "tenants", "{{tenant_id}}"]
+            },
+            "description": "Shorthand to suspend a tenant — blocks all tenant users from logging in."
+          }
+        },
+        {
+          "name": "Reactivate Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Active\"\n}"
+            },
+            "url": {
+              "raw": "{{sysadmin_url}}/super/v1/tenants/{{tenant_id}}",
+              "host": ["{{sysadmin_url}}"],
+              "path": ["super", "v1", "tenants", "{{tenant_id}}"]
+            },
+            "description": "Reactivates a suspended or inactive tenant."
+          }
+        },
+        {
+          "name": "Delete Tenant (Soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{sysadmin_url}}/super/v1/tenants/{{tenant_id}}",
+              "host": ["{{sysadmin_url}}"],
+              "path": ["super", "v1", "tenants", "{{tenant_id}}"]
+            },
+            "description": "Soft-deletes a tenant by setting `IsDeleted = true`.\n\nTenant data is retained in the database but the tenant can no longer log in or be resolved.\nThis operation is **irreversible** via the API."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Công ty TNHH ABC\",\n  \"slug\": \"cong-ty-abc\",\n  \"status\": \"Active\",\n  \"userCount\": 5,\n  \"createdAt\": \"2026-03-12T10:00:00Z\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Tenant 3fa85f64-5717-4562-b3fc-2c963f66afa6 not found.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Public (no auth)",
+      "description": "Public endpoints — no Authorization header required.",
+      "item": [
+        {
+          "name": "Resolve Tenant by Slug",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://localhost:44322/api/v1/public/tenants/by-slug/demo",
+              "protocol": "https",
+              "host": ["localhost"],
+              "port": "44322",
+              "path": ["api", "v1", "public", "tenants", "by-slug", "demo"]
+            },
+            "description": "Resolves a tenant slug to its tenantId and basic info.\nUsed by the frontend on the login page to determine which tenant the user belongs to.\n\nSlug rules: lowercase `a-z`, `0-9`, `-` only.\nRate limit: 30 requests/minute per IP.\n\nResponse: ResolveTenantDto — returns 200 even if tenant is Inactive/Suspended (frontend decides behavior)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": null,\n  \"data\": {\n    \"tenantId\": \"10000000-0000-0000-0000-000000000001\",\n    \"name\": \"Demo Company\",\n    \"slug\": \"demo\",\n    \"status\": \"Active\"\n  },\n  \"errors\": null,\n  \"traceId\": null\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Tenant 'unknown-slug' not found.\",\n  \"data\": null,\n  \"errors\": null,\n  \"traceId\": null\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

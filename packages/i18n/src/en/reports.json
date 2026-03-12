@@ -1,0 +1,19 @@
+{
+  "reports": "Reports",
+  "profit_loss": "Profit & Loss",
+  "revenue": "Revenue",
+  "cost_of_goods": "Cost of Goods Sold",
+  "gross_profit": "Gross Profit",
+  "expenses": "Expenses",
+  "net_profit": "Net Profit",
+  "date_range": "Date Range",
+  "from_date": "From",
+  "to_date": "To",
+  "account_balances": "Account Balances",
+  "account": "Account",
+  "opening_balance": "Opening Balance",
+  "total_debit": "Total Debit",
+  "total_credit": "Total Credit",
+  "closing_balance": "Closing Balance",
+  "generate_report": "Generate Report"
+}

@@ -1,0 +1,19 @@
+{
+  "reports": "Báo cáo",
+  "profit_loss": "Báo cáo lãi lỗ",
+  "revenue": "Doanh thu",
+  "cost_of_goods": "Giá vốn hàng bán",
+  "gross_profit": "Lợi nhuận gộp",
+  "expenses": "Chi phí",
+  "net_profit": "Lợi nhuận ròng",
+  "date_range": "Khoảng thời gian",
+  "from_date": "Từ ngày",
+  "to_date": "Đến ngày",
+  "account_balances": "Số dư tài khoản",
+  "account": "Tài khoản",
+  "opening_balance": "Số dư đầu kỳ",
+  "total_debit": "Tổng nợ",
+  "total_credit": "Tổng có",
+  "closing_balance": "Số dư cuối kỳ",
+  "generate_report": "Tạo báo cáo"
+}
