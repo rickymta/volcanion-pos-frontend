@@ -7,7 +7,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { IconPlus, IconTrash, IconAlertCircle } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
 import { PageHeader } from '@pos/ui'
-import { inventoryApi, warehousesApi, productsApi } from '@pos/api-client'
+import { inventoryApi, warehousesApi } from '@pos/api-client'
+import type { ProductDto } from '@pos/api-client'
+import { ProductSelectCell } from '../../../components/ProductSelectCell'
 
 interface BalanceLine {
   productId: string
@@ -21,35 +23,25 @@ export default function OpeningBalancePage() {
   const [warehouseId, setWarehouseId] = useState<string | null>(null)
   const [lines, setLines] = useState<BalanceLine[]>([])
   const [addProductId, setAddProductId] = useState<string | null>(null)
+  const [addProductDto, setAddProductDto] = useState<ProductDto | null>(null)
 
   const { data: warehouses } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => warehousesApi.list(),
+    queryFn: () => warehousesApi.list({ pageSize: 50 }),
   })
-
-  const { data: products } = useQuery({
-    queryKey: ['products-all'],
-    queryFn: () => productsApi.list({ pageSize: 500 }),
-  })
-
-  const productOptions = (products?.items ?? []).map((p) => ({
-    value: p.id,
-    label: `${p.code} — ${p.name}`,
-  }))
 
   function addLine() {
-    if (!addProductId) return
+    if (!addProductId || !addProductDto) return
     if (lines.find((l) => l.productId === addProductId)) {
       notifications.show({ color: 'yellow', message: 'Sản phẩm đã được thêm' })
       return
     }
-    const product = (products?.items ?? []).find((p) => p.id === addProductId)
-    if (!product) return
     setLines((prev) => [
       ...prev,
-      { productId: product.id, productName: `${product.code} — ${product.name}`, quantity: 0, unitCost: product.costPrice ?? 0 },
+      { productId: addProductDto.id, productName: `${addProductDto.code} — ${addProductDto.name}`, quantity: 0, unitCost: addProductDto.costPrice ?? 0 },
     ])
     setAddProductId(null)
+    setAddProductDto(null)
   }
 
   function removeLine(productId: string) {
@@ -84,7 +76,7 @@ export default function OpeningBalancePage() {
     onError: (e: Error) => notifications.show({ color: 'red', message: e.message }),
   })
 
-  const warehouseOptions = (warehouses ?? []).map((w) => ({ value: w.id, label: w.name }))
+  const warehouseOptions = (warehouses?.items ?? []).map((w) => ({ value: w.id, label: w.name }))
   const totalValue = lines.reduce((s, l) => s + l.quantity * l.unitCost, 0)
 
   return (
@@ -111,16 +103,12 @@ export default function OpeningBalancePage() {
 
         {/* Add product row */}
         <Group gap="sm" align="flex-end">
-          <Select
-            label="Thêm sản phẩm"
-            placeholder="Tìm sản phẩm..."
-            searchable
-            clearable
-            data={productOptions}
-            value={addProductId}
-            onChange={setAddProductId}
-            w={320}
-          />
+            <ProductSelectCell
+              value={addProductId}
+              onChange={(pid, product) => { setAddProductId(pid); setAddProductDto(product) }}
+              placeholder="Tìm sản phẩm..."
+              style={{ width: 320 }}
+            />
           <Button leftSection={<IconPlus size={16} />} onClick={addLine} disabled={!addProductId}>
             Thêm
           </Button>

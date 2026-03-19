@@ -1,5 +1,6 @@
-﻿import { useState } from 'react'
+﻿import { useState, useMemo } from 'react'
 import { Stack, Tabs, Select, Paper, Text, Group, Table } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '@pos/ui'
 import { debtApi, customersApi, suppliersApi } from '@pos/api-client'
@@ -7,17 +8,45 @@ import { formatVND, formatDate } from '@pos/utils'
 
 export default function DebtPage() {
   const [customerId, setCustomerId] = useState<string | null>(null)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [debouncedCustomerSearch] = useDebouncedValue(customerSearch, 300)
   const [supplierId, setSupplierId] = useState<string | null>(null)
+  const [supplierSearch, setSupplierSearch] = useState('')
+  const [debouncedSupplierSearch] = useDebouncedValue(supplierSearch, 300)
 
   const { data: customers } = useQuery({
-    queryKey: ['customers-all'],
-    queryFn: () => customersApi.list({ page: 1, pageSize: 200 }),
+    queryKey: ['customers-search', debouncedCustomerSearch],
+    queryFn: () => customersApi.list({ search: debouncedCustomerSearch || undefined, pageSize: 20 }),
   })
+  const { data: selectedCustomerData } = useQuery({
+    queryKey: ['customer', customerId],
+    queryFn: () => customersApi.getById(customerId!),
+    enabled: !!customerId,
+    staleTime: Infinity,
+  })
+  const customerOptions = useMemo(() => {
+    const results = (customers?.items ?? []).map((c) => ({ value: c.id, label: c.name }))
+    if (customerId && selectedCustomerData && !results.find((o) => o.value === customerId))
+      results.unshift({ value: selectedCustomerData.id, label: selectedCustomerData.name })
+    return results
+  }, [customers?.items, selectedCustomerData, customerId])
 
   const { data: suppliers } = useQuery({
-    queryKey: ['suppliers-all'],
-    queryFn: () => suppliersApi.list({ page: 1, pageSize: 200 }),
+    queryKey: ['suppliers-search', debouncedSupplierSearch],
+    queryFn: () => suppliersApi.list({ search: debouncedSupplierSearch || undefined, pageSize: 20 }),
   })
+  const { data: selectedSupplierData } = useQuery({
+    queryKey: ['supplier', supplierId],
+    queryFn: () => suppliersApi.getById(supplierId!),
+    enabled: !!supplierId,
+    staleTime: Infinity,
+  })
+  const supplierOptions = useMemo(() => {
+    const results = (suppliers?.items ?? []).map((s) => ({ value: s.id, label: s.name }))
+    if (supplierId && selectedSupplierData && !results.find((o) => o.value === supplierId))
+      results.unshift({ value: selectedSupplierData.id, label: selectedSupplierData.name })
+    return results
+  }, [suppliers?.items, selectedSupplierData, supplierId])
 
   const { data: customerSummary } = useQuery({
     queryKey: ['debt-customer-summary', customerId],
@@ -43,9 +72,6 @@ export default function DebtPage() {
     enabled: !!supplierId,
   })
 
-  const customerOptions = (customers?.items ?? []).map((c) => ({ value: c.id, label: c.name }))
-  const supplierOptions = (suppliers?.items ?? []).map((s) => ({ value: s.id, label: s.name }))
-
   return (
     <Stack gap="lg">
       <PageHeader title="Công nợ" subtitle="Theo dõi công nợ khách hàng và nhà cung cấp" />
@@ -59,12 +85,16 @@ export default function DebtPage() {
         <Tabs.Panel value="customer" pt="md">
           <Stack gap="md">
             <Select
-              placeholder="Chọn khách hàng..."
+              placeholder="Tìm khách hàng..."
               data={customerOptions}
               value={customerId}
               onChange={setCustomerId}
               searchable
               clearable
+              searchValue={customerSearch}
+              onSearchChange={setCustomerSearch}
+              filter={({ options }) => options}
+              nothingFoundMessage="Không tìm thấy"
               w={300}
             />
             {customerSummary !== undefined && (
@@ -113,12 +143,16 @@ export default function DebtPage() {
         <Tabs.Panel value="supplier" pt="md">
           <Stack gap="md">
             <Select
-              placeholder="Chọn nhà cung cấp..."
+              placeholder="Tìm nhà cung cấp..."
               data={supplierOptions}
               value={supplierId}
               onChange={setSupplierId}
               searchable
               clearable
+              searchValue={supplierSearch}
+              onSearchChange={setSupplierSearch}
+              filter={({ options }) => options}
+              nothingFoundMessage="Không tìm thấy"
               w={300}
             />
             {supplierSummary !== undefined && (

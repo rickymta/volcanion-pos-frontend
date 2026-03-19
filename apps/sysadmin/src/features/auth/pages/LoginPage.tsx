@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { TextInput, PasswordInput, Button, Stack, Title, Alert } from '@mantine/core'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { systemApi, sysadminAuth } from '@pos/sysadmin-client'
 import { IconAlertCircle } from '@tabler/icons-react'
@@ -33,8 +33,7 @@ export default function LoginPage() {
 
   // Auto-redirect if already logged in
   if (sysadminAuth.getToken()) {
-    navigate('/', { replace: true })
-    return null
+    return <Navigate to="/" replace />
   }
 
   return (

@@ -16,6 +16,11 @@ export interface UserProfile {
   email: string
   fullName: string
   tenantId: string
+  /** True when JWT has all_branches = true (Admin always included) */
+  isAllBranches?: boolean
+  /** List of branch IDs the user is explicitly assigned to */
+  branchIds?: string[]
+  /** @deprecated Use branchIds[0] instead */
   branchId?: string
   branchName?: string
   roles: string[]

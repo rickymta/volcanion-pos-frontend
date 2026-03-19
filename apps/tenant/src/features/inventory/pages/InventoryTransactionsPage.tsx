@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Stack, Group, Select, Badge, Text } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
+import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader, DataTable } from '@pos/ui'
 import type { DataTableColumn } from '@pos/ui'
@@ -36,14 +37,30 @@ export default function InventoryTransactionsPage() {
   const [page, setPage] = useState(1)
 
   const { data: warehousesData } = useQuery({
-    queryKey: ['warehouses-all'],
-    queryFn: () => warehousesApi.list().then((r) => r.items),
+    queryKey: ['warehouses'],
+    queryFn: () => warehousesApi.list({ pageSize: 50 }),
   })
 
+  const [productSearch, setProductSearch] = useState('')
+  const [debouncedProductSearch] = useDebouncedValue(productSearch, 300)
+
   const { data: productsData } = useQuery({
-    queryKey: ['products-for-filter'],
-    queryFn: () => productsApi.list({ pageSize: 200 }),
+    queryKey: ['products', debouncedProductSearch],
+    queryFn: () => productsApi.list({ keyword: debouncedProductSearch || undefined, pageSize: 20 }),
   })
+  const { data: selectedProduct } = useQuery({
+    queryKey: ['product', productId],
+    queryFn: () => productsApi.getById(productId!),
+    enabled: !!productId,
+    staleTime: Infinity,
+  })
+  const productOptions = useMemo(() => {
+    const list = (productsData?.items ?? []).map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))
+    if (productId && selectedProduct && !list.find((o) => o.value === productId)) {
+      list.unshift({ value: selectedProduct.id, label: `${selectedProduct.code} — ${selectedProduct.name}` })
+    }
+    return list
+  }, [productsData, productId, selectedProduct])
 
   const params = {
     page,
@@ -112,7 +129,7 @@ export default function InventoryTransactionsPage() {
       <Group wrap="wrap" gap="sm">
         <Select
           placeholder="Tất cả kho"
-          data={(warehousesData ?? []).map((w) => ({ value: w.id, label: w.name }))}
+          data={(warehousesData?.items ?? []).map((w) => ({ value: w.id, label: w.name }))}
           value={warehouseId}
           onChange={(v) => { setWarehouseId(v); setPage(1) }}
           clearable
@@ -120,11 +137,15 @@ export default function InventoryTransactionsPage() {
         />
         <Select
           placeholder="Tất cả sản phẩm"
-          data={(productsData?.items ?? []).map((p) => ({ value: p.id, label: p.name }))}
+          data={productOptions}
           value={productId}
-          onChange={(v) => { setProductId(v); setPage(1) }}
+          onChange={(v) => { setProductId(v); setProductSearch(''); setPage(1) }}
+          searchValue={productSearch}
+          onSearchChange={setProductSearch}
+          filter={({ options }) => options}
           clearable
           searchable
+          nothingFoundMessage="Không tìm thấy"
           w={240}
         />
         <Select

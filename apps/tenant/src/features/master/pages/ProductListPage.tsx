@@ -29,7 +29,7 @@ export default function ProductListPage() {
       productsApi.list({
         page,
         pageSize: PAGE_SIZE,
-        search: search || undefined,
+        keyword: search || undefined,
         categoryId: categoryId ?? undefined,
       }),
   })
@@ -50,12 +50,12 @@ export default function ProductListPage() {
     },
     { key: 'baseUnitName', header: 'ĐVT' },
     {
-      key: 'sellingPrice',
+      key: 'salePrice',
       header: 'Giá bán',
       align: 'right',
       render: (row) => (
         <NumberFormatter
-          value={row.sellingPrice as number}
+          value={row.salePrice as number}
           thousandSeparator="."
           decimalSeparator=","
           suffix=" ₫"

@@ -1,17 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Stack, Group, Button, NumberInput, Select, ActionIcon,
   Table, Paper, Text, Divider, Textarea,
 } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
 import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconTrash, IconDeviceFloppy } from '@tabler/icons-react'
 import { PageHeader } from '@pos/ui'
-import { purchaseOrdersApi, suppliersApi, productsApi } from '@pos/api-client'
+import { purchaseOrdersApi, suppliersApi } from '@pos/api-client'
 import type { ProductDto } from '@pos/api-client'
 import { formatVND } from '@pos/utils'
+import { ProductSelectCell } from '../../../components/ProductSelectCell'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 interface LineItem {
   key: number
@@ -39,11 +42,16 @@ export default function PurchaseOrderFormPage() {
   const isEdit = !!id
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { activeBranchId } = useBranchStore()
 
   const [supplierId, setSupplierId] = useState<string | null>(null)
+  const [supplierSearch, setSupplierSearch] = useState('')
+  const [debouncedSupplierSearch] = useDebouncedValue(supplierSearch, 300)
   const [orderDate, setOrderDate] = useState<Date | null>(new Date())
   const [note, setNote] = useState('')
+  const [discountAmount, setDiscountAmount] = useState<number>(0)
   const [lines, setLines] = useState<LineItem[]>([makeEmptyLine()])
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   // Load existing order when editing
   const { data: existingOrder } = useQuery({
@@ -57,6 +65,7 @@ export default function PurchaseOrderFormPage() {
       setSupplierId(existingOrder.supplierId)
       setOrderDate(new Date(existingOrder.orderDate))
       setNote(existingOrder.note ?? '')
+      setDiscountAmount(existingOrder.discountAmount ?? 0)
       setLines(
         existingOrder.lines.map((l) => ({
           key: ++lineKey,
@@ -71,32 +80,35 @@ export default function PurchaseOrderFormPage() {
     }
   }, [existingOrder])
 
-  // Load suppliers & products
+  // Suppliers — server-side debounced search
   const { data: suppliersData } = useQuery({
-    queryKey: ['suppliers-all'],
-    queryFn: () => suppliersApi.list({ pageSize: 500 }),
+    queryKey: ['suppliers-search', debouncedSupplierSearch],
+    queryFn: () => suppliersApi.list({ search: debouncedSupplierSearch || undefined, pageSize: 20 }),
   })
-
-  const [productSearch, setProductSearch] = useState('')
-  const { data: productsData } = useQuery({
-    queryKey: ['products-search', productSearch],
-    queryFn: () => productsApi.list({ search: productSearch, pageSize: 50 }),
+  // Keep selected supplier label visible in edit mode
+  const { data: selectedSupplier } = useQuery({
+    queryKey: ['supplier', supplierId],
+    queryFn: () => suppliersApi.getById(supplierId!),
+    enabled: !!supplierId,
+    staleTime: Infinity,
   })
-
-  const productMap: Record<string, ProductDto> = {}
-  ;(productsData?.items ?? []).forEach((p) => { productMap[p.id] = p as ProductDto })
+  const supplierOptions = useMemo(() => {
+    const results = (suppliersData?.items ?? []).map((s) => ({ value: s.id, label: s.name }))
+    if (supplierId && selectedSupplier && !results.find((o) => o.value === supplierId))
+      results.unshift({ value: selectedSupplier.id, label: selectedSupplier.name })
+    return results
+  }, [suppliersData?.items, selectedSupplier, supplierId])
 
   // Line operations
   const updateLine = <K extends keyof LineItem>(key: number, field: K, value: LineItem[K]) => {
     setLines((prev) => prev.map((l) => l.key === key ? { ...l, [field]: value } : l))
   }
 
-  const handleProductSelect = (key: number, productId: string | null) => {
+  const handleProductSelect = (key: number, productId: string | null, product: ProductDto | null) => {
     if (!productId) {
       setLines((prev) => prev.map((l) => l.key === key ? { ...l, productId: null, unitId: '', unitName: '' } : l))
       return
     }
-    const product = productMap[productId]
     setLines((prev) =>
       prev.map((l) =>
         l.key === key
@@ -123,7 +135,7 @@ export default function PurchaseOrderFormPage() {
 
   const subtotal = lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
   const totalTax = lines.reduce((s, l) => s + l.quantity * l.unitPrice * (l.vatRate / 100), 0)
-  const grandTotal = subtotal + totalTax
+  const grandTotal = subtotal + totalTax - discountAmount
 
   // Submit
   const saveMutation = useMutation({
@@ -137,6 +149,8 @@ export default function PurchaseOrderFormPage() {
         supplierId,
         orderDate: orderDate.toISOString().slice(0, 10),
         note: note || undefined,
+        discountAmount: discountAmount || undefined,
+        branchId: activeBranchId ?? undefined,
         lines: validLines.map((l) => ({
           productId: l.productId!,
           unitId: l.unitId,
@@ -149,7 +163,7 @@ export default function PurchaseOrderFormPage() {
       if (isEdit) {
         return purchaseOrdersApi.update(id!, body)
       }
-      return purchaseOrdersApi.create(body)
+      return purchaseOrdersApi.create(body, idempotencyKey)
     },
     onSuccess: (order) => {
       void qc.invalidateQueries({ queryKey: ['purchase-orders'] })
@@ -162,8 +176,7 @@ export default function PurchaseOrderFormPage() {
     },
   })
 
-  const productOptions = (productsData?.items ?? []).map((p) => ({ value: p.id, label: p.name + ' (' + p.code + ')' }))
-  const supplierOptions = (suppliersData?.items ?? []).map((s) => ({ value: s.id, label: s.name }))
+
 
   return (
     <Stack gap="lg">
@@ -191,13 +204,17 @@ export default function PurchaseOrderFormPage() {
           <Group grow>
             <Select
               label="Nhà cung cấp"
-              placeholder="Chọn nhà cung cấp..."
+              placeholder="Tìm nhà cung cấp..."
               required
               searchable
               clearable
               data={supplierOptions}
               value={supplierId}
               onChange={setSupplierId}
+              searchValue={supplierSearch}
+              onSearchChange={setSupplierSearch}
+              filter={({ options }) => options}
+              nothingFoundMessage="Không tìm thấy"
             />
             <DateInput
               label="Ngày đặt hàng"
@@ -213,6 +230,15 @@ export default function PurchaseOrderFormPage() {
             value={note}
             onChange={(e) => setNote(e.currentTarget.value)}
             rows={2}
+          />
+          <NumberInput
+            label="Chiết khấu (đồng)"
+            placeholder="0"
+            value={discountAmount}
+            onChange={(v) => setDiscountAmount(Number(v) || 0)}
+            min={0}
+            thousandSeparator=","
+            w={200}
           />
         </Stack>
       </Paper>
@@ -241,14 +267,9 @@ export default function PurchaseOrderFormPage() {
               {lines.map((line) => (
                 <Table.Tr key={line.key}>
                   <Table.Td>
-                    <Select
-                      placeholder="Chọn sản phẩm..."
-                      searchable
-                      data={productOptions}
+                    <ProductSelectCell
                       value={line.productId}
-                      onChange={(v) => handleProductSelect(line.key, v)}
-                      onSearchChange={setProductSearch}
-                      size="xs"
+                      onChange={(pid, product) => handleProductSelect(line.key, pid, product)}
                     />
                   </Table.Td>
                   <Table.Td>
@@ -305,6 +326,12 @@ export default function PurchaseOrderFormPage() {
               <Text size="sm" c="dimmed">Tạm tính</Text>
               <Text size="sm">{formatVND(subtotal)}</Text>
             </Group>
+            {discountAmount > 0 && (
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Chiết khấu</Text>
+                <Text size="sm" c="red">-{formatVND(discountAmount)}</Text>
+              </Group>
+            )}
             <Group justify="space-between">
               <Text size="sm" c="dimmed">Thuế VAT</Text>
               <Text size="sm">{formatVND(totalTax)}</Text>

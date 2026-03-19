@@ -24,8 +24,8 @@ export const paymentsApi = {
     apiClient.get<PagedResult<PaymentDto>>('/payments', { params }),
   getById: (id: string) =>
     apiClient.get<PaymentDto>(`/payments/${id}`),
-  create: (body: CreatePaymentRequest) =>
-    apiClient.post<PaymentDto>('/payments', body),
+  create: (body: CreatePaymentRequest, idempotencyKey?: string) =>
+    apiClient.post<PaymentDto>('/payments', body, idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined),
 }
 
 export const debtApi = {
@@ -70,8 +70,8 @@ export const operatingExpensesApi = {
     apiClient.get<PagedResult<OperatingExpenseDto>>('/operating-expenses', { params }),
   getById: (id: string) =>
     apiClient.get<OperatingExpenseDto>(`/operating-expenses/${id}`),
-  create: (body: CreateOperatingExpenseRequest) =>
-    apiClient.post<OperatingExpenseDto>('/operating-expenses', body),
+  create: (body: CreateOperatingExpenseRequest, idempotencyKey?: string) =>
+    apiClient.post<OperatingExpenseDto>('/operating-expenses', body, idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined),
   confirm: (id: string) =>
     apiClient.post<OperatingExpenseDto>(`/operating-expenses/${id}/confirm`),
   allocate: (body: AllocateExpenseRequest) =>

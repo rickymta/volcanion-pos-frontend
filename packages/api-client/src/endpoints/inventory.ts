@@ -34,8 +34,8 @@ export const inventoryApi = {
     apiClient.get<PagedResult<StockTransferDto>>('/stock-transfers', { params }),
   getTransfer: (id: string) =>
     apiClient.get<StockTransferDto>(`/stock-transfers/${id}`),
-  createTransfer: (body: CreateStockTransferRequest) =>
-    apiClient.post<StockTransferDto>('/stock-transfers', body),
+  createTransfer: (body: CreateStockTransferRequest, idempotencyKey?: string) =>
+    apiClient.post<StockTransferDto>('/stock-transfers', body, idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined),
   confirmTransfer: (id: string) =>
     apiClient.post<StockTransferDto>(`/stock-transfers/${id}/confirm`),
   // NOTE: cancelTransfer does NOT exist in backend — removed

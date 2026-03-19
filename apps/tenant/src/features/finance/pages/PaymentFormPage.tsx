@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Stack, Group, Button, NumberInput, Select, Paper, Textarea,
 } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
 import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -38,8 +39,11 @@ export default function PaymentFormPage() {
   const [amount, setAmount] = useState<number>(0)
   const [partnerType, setPartnerType] = useState<string | null>(typeFromQuery === 'Pay' ? 'Supplier' : 'Customer')
   const [partnerId, setPartnerId] = useState<string | null>(partnerIdFromQuery)
+  const [partnerSearch, setPartnerSearch] = useState('')
+  const [debouncedPartnerSearch] = useDebouncedValue(partnerSearch, 300)
   const [referenceId, setReferenceId] = useState<string>(referenceIdFromQuery ?? '')
   const [note, setNote] = useState('')
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   // Sync partnerType when type changes
   useEffect(() => {
@@ -47,22 +51,42 @@ export default function PaymentFormPage() {
     else if (type === 'Pay') setPartnerType('Supplier')
   }, [type])
 
-  // Load customers & suppliers
+  // Load customers & suppliers — server-side debounced search
   const { data: customersData } = useQuery({
-    queryKey: ['customers-all'],
-    queryFn: () => customersApi.list({ pageSize: 500 }),
+    queryKey: ['customers-search', debouncedPartnerSearch],
+    queryFn: () => customersApi.list({ search: debouncedPartnerSearch || undefined, pageSize: 20 }),
     enabled: partnerType === 'Customer',
   })
-
   const { data: suppliersData } = useQuery({
-    queryKey: ['suppliers-all'],
-    queryFn: () => suppliersApi.list({ pageSize: 500 }),
+    queryKey: ['suppliers-search', debouncedPartnerSearch],
+    queryFn: () => suppliersApi.list({ search: debouncedPartnerSearch || undefined, pageSize: 20 }),
     enabled: partnerType === 'Supplier',
   })
-
-  const partnerOptions = partnerType === 'Customer'
-    ? (customersData?.items ?? []).map((c) => ({ value: c.id, label: c.name }))
-    : (suppliersData?.items ?? []).map((s) => ({ value: s.id, label: s.name }))
+  // Keep selected partner label visible (pre-fill from URL or edit mode)
+  const { data: selectedCustomer } = useQuery({
+    queryKey: ['customer', partnerId],
+    queryFn: () => customersApi.getById(partnerId!),
+    enabled: !!partnerId && partnerType === 'Customer',
+    staleTime: Infinity,
+  })
+  const { data: selectedSupplier } = useQuery({
+    queryKey: ['supplier', partnerId],
+    queryFn: () => suppliersApi.getById(partnerId!),
+    enabled: !!partnerId && partnerType === 'Supplier',
+    staleTime: Infinity,
+  })
+  const partnerOptions = useMemo(() => {
+    if (partnerType === 'Customer') {
+      const results = (customersData?.items ?? []).map((c) => ({ value: c.id, label: c.name }))
+      if (partnerId && selectedCustomer && !results.find((o) => o.value === partnerId))
+        results.unshift({ value: selectedCustomer.id, label: selectedCustomer.name })
+      return results
+    }
+    const results = (suppliersData?.items ?? []).map((s) => ({ value: s.id, label: s.name }))
+    if (partnerId && selectedSupplier && !results.find((o) => o.value === partnerId))
+      results.unshift({ value: selectedSupplier.id, label: selectedSupplier.name })
+    return results
+  }, [partnerType, customersData?.items, suppliersData?.items, selectedCustomer, selectedSupplier, partnerId])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -82,7 +106,7 @@ export default function PaymentFormPage() {
         referenceType: 'Manual',
         referenceId: referenceId || undefined,
         note: note || undefined,
-      })
+      }, idempotencyKey)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['payments'] })
@@ -146,13 +170,17 @@ export default function PaymentFormPage() {
           <Group grow>
             <Select
               label={isReceivable ? 'Khách hàng' : 'Nhà cung cấp'}
-              placeholder={isReceivable ? 'Chọn khách hàng...' : 'Chọn nhà cung cấp...'}
+              placeholder={isReceivable ? 'Tìm khách hàng...' : 'Tìm nhà cung cấp...'}
               required
               searchable
               clearable
               data={partnerOptions}
               value={partnerId}
-              onChange={setPartnerId}
+              onChange={(v) => { setPartnerId(v); setPartnerSearch('') }}
+              searchValue={partnerSearch}
+              onSearchChange={setPartnerSearch}
+              filter={({ options }) => options}
+              nothingFoundMessage="Không tìm thấy"
             />
             <NumberInput
               label="Số tiền"

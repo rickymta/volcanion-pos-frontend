@@ -39,6 +39,8 @@ export default function LoginPage() {
         email: dto.email ?? dto.username,
         fullName: dto.fullName,
         tenantId: dto.tenantId,
+        isAllBranches: dto.isAllBranches,
+        branchIds: dto.branchIds ?? [],
         branchId: dto.isAllBranches ? undefined : dto.branchIds?.[0],
         roles: dto.roles.map((r) => r.name),
         permissions: dto.permissions.map((p) => p.code),

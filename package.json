@@ -7,6 +7,8 @@
     "dev:tenant": "turbo run dev --filter=@pos/tenant",
     "dev:sysadmin": "turbo run dev --filter=@pos/sysadmin",
     "dev:pos": "turbo run dev --filter=@pos/pos",
+    "dev:blog": "turbo run dev --filter=@pos/blog",
+    "dev:cms-admin": "turbo run dev --filter=@pos/cms-admin",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "test": "turbo run test",

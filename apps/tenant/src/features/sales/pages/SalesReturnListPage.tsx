@@ -9,6 +9,7 @@ import type { DataTableColumn } from '@pos/ui'
 import { salesReturnsApi } from '@pos/api-client'
 import type { SalesReturnDto, SalesReturnListParams } from '@pos/api-client'
 import { DocumentStatusLabel, formatDate, formatVND } from '@pos/utils'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 type Row = SalesReturnDto & Record<string, unknown>
 
@@ -27,12 +28,15 @@ export default function SalesReturnListPage() {
   const [fromDate, setFromDate] = useState<Date | null>(null)
   const [toDate, setToDate] = useState<Date | null>(null)
 
+  const { activeBranchId } = useBranchStore()
+
   const params: SalesReturnListParams = {
     page,
     pageSize: PAGE_SIZE,
     status: (status ?? undefined) as SalesReturnListParams['status'],
     fromDate: fromDate ? fromDate.toISOString().slice(0, 10) : undefined,
     toDate: toDate ? toDate.toISOString().slice(0, 10) : undefined,
+    branchId: activeBranchId ?? undefined,
   }
 
   const { data, isLoading } = useQuery({

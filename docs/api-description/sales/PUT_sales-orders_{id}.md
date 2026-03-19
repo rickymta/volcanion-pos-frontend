@@ -27,6 +27,7 @@ Content-Type: application/json
   "customerId": "cust-uuid-1",
   "orderDate": "2026-03-10T10:00:00Z",
   "note": "Giao trước 6pm (sửa)",
+  "branchId": "branch-uuid-1",
   "lines": [
     {
       "productId": "prod-uuid-1",

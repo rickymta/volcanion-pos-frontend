@@ -1,0 +1,1045 @@
+{
+  "info": {
+    "name": "POS — Status Management API",
+    "description": "Bộ test dành riêng cho các endpoint bị ảnh hưởng sau đợt rà soát Quản lý Trạng thái (2026-03-12):\n- Tenant lifecycle (TenantStatus enum)\n- Unit master data (EntityStatus bổ sung)\n- Category master data (EntityStatus bổ sung)\n\nVariables cần thiết: sysadmin_base_url, tenant_base_url, tenant_id",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "sysadmin_base_url", "value": "http://localhost:5100", "type": "string" },
+    { "key": "tenant_base_url",   "value": "http://localhost:63284", "type": "string" },
+    { "key": "tenant_id",         "value": "00000000-0000-0000-0000-000000000000", "type": "string", "description": "X-Tenant-ID header — thay bằng ID tenant thực" },
+    { "key": "sysadmin_token",    "value": "", "type": "string" },
+    { "key": "tenant_token",      "value": "", "type": "string" },
+    { "key": "created_tenant_id", "value": "", "type": "string" },
+    { "key": "created_unit_id",   "value": "", "type": "string" },
+    { "key": "created_category_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🔐 SysAdmin Auth",
+      "item": [
+        {
+          "name": "Login (SysAdmin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('accessToken present', () => pm.expect(json.accessToken || json.AccessToken).to.be.a('string'));",
+                  "const token = json.accessToken || json.AccessToken;",
+                  "pm.collectionVariables.set('sysadmin_token', token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{sysadmin_base_url}}/super/v1/auth/login",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"superadmin\",\n  \"password\": \"SuperAdmin@123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 Tenant Management (TenantStatus)",
+      "description": "Các endpoint bị ảnh hưởng bởi việc chuyển Tenant.Status từ string sang TenantStatus enum.\nStatus hợp lệ: Inactive | Active | Suspended | Provisioning | Failed",
+      "item": [
+        {
+          "name": "GET /tenants — List All",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has items array', () => pm.expect(json.items || json.data).to.be.an('array'));",
+                  "const tenants = json.items || json.data || [];",
+                  "if (tenants.length > 0) {",
+                  "  pm.test('Each tenant has Status field', () => {",
+                  "    tenants.forEach(t => pm.expect(t.status ?? t.Status).to.be.a('string'));",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{sysadmin_base_url}}/super/v1/tenants?page=1&pageSize=20",
+              "host": ["{{sysadmin_base_url}}"],
+              "path": ["super", "v1", "tenants"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "status", "value": "", "disabled": true, "description": "TenantStatus enum: Active | Inactive | Suspended | Provisioning | Failed" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ]
+          }
+        },
+        {
+          "name": "GET /tenants?status=Active — Filter Active",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const tenants = json.items || json.data || [];",
+                  "pm.test('All returned tenants are Active', () => {",
+                  "  tenants.forEach(t => {",
+                  "    const s = t.status ?? t.Status;",
+                  "    pm.expect(s).to.equal('Active');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{sysadmin_base_url}}/super/v1/tenants?status=Active",
+              "host": ["{{sysadmin_base_url}}"],
+              "path": ["super", "v1", "tenants"],
+              "query": [
+                { "key": "status", "value": "Active" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ]
+          }
+        },
+        {
+          "name": "GET /tenants?status=Suspended — Filter Suspended",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const tenants = json.items || json.data || [];",
+                  "pm.test('All returned tenants are Suspended', () => {",
+                  "  tenants.forEach(t => {",
+                  "    const s = t.status ?? t.Status;",
+                  "    pm.expect(s).to.equal('Suspended');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{sysadmin_base_url}}/super/v1/tenants?status=Suspended",
+              "host": ["{{sysadmin_base_url}}"],
+              "path": ["super", "v1", "tenants"],
+              "query": [
+                { "key": "status", "value": "Suspended" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ]
+          }
+        },
+        {
+          "name": "POST /tenants — Create Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is Active after provisioning', () => {",
+                  "  const s = json.status ?? json.Status;",
+                  "  pm.expect(s).to.equal('Active');",
+                  "});",
+                  "pm.collectionVariables.set('created_tenant_id', json.id ?? json.Id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{sysadmin_base_url}}/super/v1/tenants",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Company Status\",\n  \"slug\": \"test-company-status\",\n  \"taxCode\": \"1234567890\",\n  \"address\": \"123 Test Street\",\n  \"phone\": \"0901234567\",\n  \"email\": \"test@testcompany.com\",\n  \"subscriptionPlan\": \"Basic\",\n  \"timeZone\": \"Asia/Ho_Chi_Minh\",\n  \"currency\": \"VND\",\n  \"adminEmail\": \"admin@testcompany.com\",\n  \"adminUsername\": \"admin_test\",\n  \"adminPassword\": \"Admin@123456\",\n  \"adminFullName\": \"Test Admin\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /tenants/:id — Get Tenant Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status field is a string', () => {",
+                  "  const s = json.status ?? json.Status;",
+                  "  pm.expect(s).to.be.a('string');",
+                  "  pm.expect(['Active','Inactive','Suspended','Provisioning','Failed']).to.include(s);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{sysadmin_base_url}}/super/v1/tenants/{{created_tenant_id}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ]
+          }
+        },
+        {
+          "name": "PUT /tenants/:id — Suspend Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status changed to Suspended', () => {",
+                  "  const s = json.status ?? json.Status;",
+                  "  pm.expect(s).to.equal('Suspended');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{sysadmin_base_url}}/super/v1/tenants/{{created_tenant_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Suspended\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /tenants/:id — Reactivate Tenant (Active)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status changed to Active', () => {",
+                  "  const s = json.status ?? json.Status;",
+                  "  pm.expect(s).to.equal('Active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{sysadmin_base_url}}/super/v1/tenants/{{created_tenant_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Active\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /tenants/:id — Deactivate Tenant (Inactive)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status changed to Inactive', () => {",
+                  "  const s = json.status ?? json.Status;",
+                  "  pm.expect(s).to.equal('Inactive');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{sysadmin_base_url}}/super/v1/tenants/{{created_tenant_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Inactive\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /tenants/:id — [ERR] Invalid Status Value",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 for unknown status', () => {",
+                  "  pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{sysadmin_base_url}}/super/v1/tenants/{{created_tenant_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"INVALID_STATUS\"\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /tenants/:id — Soft Delete",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{sysadmin_base_url}}/super/v1/tenants/{{created_tenant_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Tenant Auth",
+      "item": [
+        {
+          "name": "Login (Tenant User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const data = json.data || json;",
+                  "const token = data.accessToken || data.AccessToken;",
+                  "pm.test('accessToken present', () => pm.expect(token).to.be.a('string'));",
+                  "pm.collectionVariables.set('tenant_token', token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{tenant_base_url}}/api/v1/auth/login",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin@123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📏 Đơn vị tính — Units (EntityStatus mới)",
+      "description": "Unit entity vừa được bổ sung trường EntityStatus.\nCác endpoint GET/PUT thay đổi: UnitDto và UpdateUnitRequest giờ có trường Status.\nUnitFilterRequest giờ có tham số status để lọc.",
+      "item": [
+        {
+          "name": "GET /units — List (no filter)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const items = body.data?.items || body.items || body.data || [];",
+                  "pm.test('Response contains items', () => pm.expect(items).to.be.an('array'));",
+                  "if (items.length > 0) {",
+                  "  pm.test('Each unit has Status field', () => {",
+                  "    items.forEach(u => {",
+                  "      pm.expect(u.status ?? u.Status, 'unit.status').to.be.a('string');",
+                  "      pm.expect(['Active','Inactive']).to.include(u.status ?? u.Status);",
+                  "    });",
+                  "  });",
+                  "  pm.collectionVariables.set('created_unit_id', items[0].id ?? items[0].Id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{tenant_base_url}}/api/v1/units",
+              "host": ["{{tenant_base_url}}"],
+              "path": ["api", "v1", "units"],
+              "query": [
+                { "key": "keyword",    "value": "", "disabled": true },
+                { "key": "isBaseUnit", "value": "", "disabled": true },
+                { "key": "status",     "value": "", "disabled": true, "description": "EntityStatus: Active | Inactive" },
+                { "key": "page",       "value": "1" },
+                { "key": "pageSize",   "value": "20" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        },
+        {
+          "name": "GET /units?status=Active — Filter Active",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const items = body.data?.items || body.items || body.data || [];",
+                  "pm.test('All units are Active', () => {",
+                  "  items.forEach(u => {",
+                  "    pm.expect(u.status ?? u.Status).to.equal('Active');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{tenant_base_url}}/api/v1/units?status=Active",
+              "host": ["{{tenant_base_url}}"],
+              "path": ["api", "v1", "units"],
+              "query": [
+                { "key": "status", "value": "Active" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        },
+        {
+          "name": "GET /units?status=Inactive — Filter Inactive",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const items = body.data?.items || body.items || body.data || [];",
+                  "pm.test('All units are Inactive', () => {",
+                  "  items.forEach(u => pm.expect(u.status ?? u.Status).to.equal('Inactive'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{tenant_base_url}}/api/v1/units?status=Inactive",
+              "host": ["{{tenant_base_url}}"],
+              "path": ["api", "v1", "units"],
+              "query": [
+                { "key": "status", "value": "Inactive" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        },
+        {
+          "name": "GET /units/:id — Get by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const u = body.data || body;",
+                  "pm.test('Unit has Status field', () => {",
+                  "  const s = u.status ?? u.Status;",
+                  "  pm.expect(s).to.be.a('string');",
+                  "  pm.expect(['Active','Inactive']).to.include(s);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{tenant_base_url}}/api/v1/units/{{created_unit_id}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        },
+        {
+          "name": "POST /units — Create Unit (Active)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const u = body.data || body;",
+                  "pm.test('Created unit has Status = Active', () => {",
+                  "  pm.expect(u.status ?? u.Status).to.equal('Active');",
+                  "});",
+                  "pm.collectionVariables.set('created_unit_id', u.id ?? u.Id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{tenant_base_url}}/api/v1/units",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Unit Status\",\n  \"symbol\": \"TUS\",\n  \"isBaseUnit\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /units/:id — Deactivate Unit (Inactive)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const u = body.data || body;",
+                  "pm.test('Unit Status changed to Inactive', () => {",
+                  "  pm.expect(u.status ?? u.Status).to.equal('Inactive');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{tenant_base_url}}/api/v1/units/{{created_unit_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Unit Status\",\n  \"symbol\": \"TUS\",\n  \"isBaseUnit\": false,\n  \"status\": \"Inactive\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /units/:id — Reactivate Unit (Active)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const u = body.data || body;",
+                  "pm.test('Unit Status changed back to Active', () => {",
+                  "  pm.expect(u.status ?? u.Status).to.equal('Active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{tenant_base_url}}/api/v1/units/{{created_unit_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Unit Status\",\n  \"symbol\": \"TUS\",\n  \"isBaseUnit\": false,\n  \"status\": \"Active\"\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /units/:id — Delete",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{tenant_base_url}}/api/v1/units/{{created_unit_id}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🗂️ Danh mục — Categories (EntityStatus mới)",
+      "description": "Category entity vừa được bổ sung trường EntityStatus.\nCategoryDto và UpdateCategoryRequest giờ có trường Status.\nGetTree/GetById trả về Status trên mỗi node.",
+      "item": [
+        {
+          "name": "GET /categories — Get Tree",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const tree = body.data || body;",
+                  "const categories = Array.isArray(tree) ? tree : [tree];",
+                  "pm.test('Each root category has Status field', () => {",
+                  "  categories.forEach(c => {",
+                  "    pm.expect(c.status ?? c.Status, 'category.status').to.be.a('string');",
+                  "    pm.expect(['Active','Inactive']).to.include(c.status ?? c.Status);",
+                  "  });",
+                  "});",
+                  "if (categories.length > 0) {",
+                  "  pm.collectionVariables.set('created_category_id', categories[0].id ?? categories[0].Id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{tenant_base_url}}/api/v1/categories",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        },
+        {
+          "name": "GET /categories/:id — Get by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const c = body.data || body;",
+                  "pm.test('Category has Status field', () => {",
+                  "  const s = c.status ?? c.Status;",
+                  "  pm.expect(s).to.be.a('string');",
+                  "  pm.expect(['Active','Inactive']).to.include(s);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{tenant_base_url}}/api/v1/categories/{{created_category_id}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        },
+        {
+          "name": "POST /categories — Create Category (Active by default)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const c = body.data || body;",
+                  "pm.test('Created category has Status = Active (default)', () => {",
+                  "  pm.expect(c.status ?? c.Status).to.equal('Active');",
+                  "});",
+                  "pm.collectionVariables.set('created_category_id', c.id ?? c.Id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{tenant_base_url}}/api/v1/categories",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAT-STATUS-TEST\",\n  \"name\": \"Test Category Status\",\n  \"description\": \"Danh mục dùng để test Status field\",\n  \"parentCategoryId\": null\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /categories/:id — Deactivate Category (Inactive)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const c = body.data || body;",
+                  "pm.test('Category Status changed to Inactive', () => {",
+                  "  pm.expect(c.status ?? c.Status).to.equal('Inactive');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{tenant_base_url}}/api/v1/categories/{{created_category_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAT-STATUS-TEST\",\n  \"name\": \"Test Category Status\",\n  \"description\": \"Danh mục dùng để test Status field\",\n  \"parentCategoryId\": null,\n  \"status\": \"Inactive\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /categories/:id — Reactivate Category (Active)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const c = body.data || body;",
+                  "pm.test('Category Status changed back to Active', () => {",
+                  "  pm.expect(c.status ?? c.Status).to.equal('Active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{tenant_base_url}}/api/v1/categories/{{created_category_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAT-STATUS-TEST\",\n  \"name\": \"Test Category Status\",\n  \"description\": \"Danh mục dùng để test Status field\",\n  \"parentCategoryId\": null,\n  \"status\": \"Active\"\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /categories/:id — Delete (no sub-categories/products)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{tenant_base_url}}/api/v1/categories/{{created_category_id}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧪 Test Cases — Status Enum Validation",
+      "description": "Các test case kiểm tra hành vi chuỗi/số integer cho enum.\nVì đã cấu hình JsonStringEnumConverter, API chấp nhận cả string lẫn integer.",
+      "item": [
+        {
+          "name": "PUT /units/:id — Status as integer (1 = Active)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 — integer enum value accepted', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const u = body.data || body;",
+                  "pm.test('Status is Active', () => {",
+                  "  pm.expect(u.status ?? u.Status).to.equal('Active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{tenant_base_url}}/api/v1/units/{{created_unit_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Unit Status\",\n  \"symbol\": \"TUS\",\n  \"isBaseUnit\": false,\n  \"status\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "PUT /units/:id — Status as integer (0 = Inactive)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 — integer 0 accepted', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const u = body.data || body;",
+                  "pm.test('Status is Inactive', () => {",
+                  "  pm.expect(u.status ?? u.Status).to.equal('Inactive');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{tenant_base_url}}/api/v1/units/{{created_unit_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Unit Status\",\n  \"symbol\": \"TUS\",\n  \"isBaseUnit\": false,\n  \"status\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /units?status=Active&isBaseUnit=true — Combine Filters",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const items = body.data?.items || body.items || body.data || [];",
+                  "pm.test('All Active + IsBaseUnit=true', () => {",
+                  "  items.forEach(u => {",
+                  "    pm.expect(u.status ?? u.Status).to.equal('Active');",
+                  "    pm.expect(u.isBaseUnit ?? u.IsBaseUnit).to.be.true;",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{tenant_base_url}}/api/v1/units?status=Active&isBaseUnit=true",
+              "host": ["{{tenant_base_url}}"],
+              "path": ["api", "v1", "units"],
+              "query": [
+                { "key": "status",     "value": "Active" },
+                { "key": "isBaseUnit", "value": "true" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ]
+          }
+        },
+        {
+          "name": "PUT /categories/:id — [ERR] Missing Status field (default used)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Status has default = Active in UpdateCategoryRequest, so missing field is OK",
+                  "pm.test('Status 200 — Status defaults to Active when omitted', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const c = body.data || body;",
+                  "pm.test('Defaults to Active', () => {",
+                  "  pm.expect(c.status ?? c.Status).to.equal('Active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{tenant_base_url}}/api/v1/categories/{{created_category_id}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenant_token}}" },
+              { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAT-STATUS-TEST\",\n  \"name\": \"Test Category Status\",\n  \"description\": null,\n  \"parentCategoryId\": null\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /tenants?status=Provisioning — Filter Provisioning Tenants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const tenants = json.items || json.data || [];",
+                  "pm.test('All tenants are Provisioning', () => {",
+                  "  tenants.forEach(t => pm.expect(t.status ?? t.Status).to.equal('Provisioning'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{sysadmin_base_url}}/super/v1/tenants?status=Provisioning",
+              "host": ["{{sysadmin_base_url}}"],
+              "path": ["super", "v1", "tenants"],
+              "query": [
+                { "key": "status", "value": "Provisioning" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ]
+          }
+        },
+        {
+          "name": "GET /tenants?status=Failed — Filter Failed Tenants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const tenants = json.items || json.data || [];",
+                  "pm.test('All tenants are Failed', () => {",
+                  "  tenants.forEach(t => pm.expect(t.status ?? t.Status).to.equal('Failed'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{sysadmin_base_url}}/super/v1/tenants?status=Failed",
+              "host": ["{{sysadmin_base_url}}"],
+              "path": ["super", "v1", "tenants"],
+              "query": [
+                { "key": "status", "value": "Failed" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{sysadmin_token}}" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

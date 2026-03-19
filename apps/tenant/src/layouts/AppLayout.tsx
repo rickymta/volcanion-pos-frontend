@@ -10,6 +10,8 @@ import {
 } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@pos/auth'
+import { BranchSelector } from '@/components/BranchSelector'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 interface NavItem {
   label: string
@@ -22,6 +24,7 @@ export function AppLayout() {
   const [opened, { toggle }] = useDisclosure()
   const { t, i18n } = useTranslation('common')
   const { user, clearAuth } = useAuth()
+  const clearBranch = useBranchStore((s) => s.clear)
   const navigate = useNavigate()
   const location = useLocation()
   const { colorScheme, toggleColorScheme } = useMantineColorScheme()
@@ -89,6 +92,7 @@ export function AppLayout() {
 
   const handleLogout = () => {
     clearAuth()
+    clearBranch()
     navigate('/auth/login')
   }
 
@@ -109,6 +113,7 @@ export function AppLayout() {
             </Group>
           </Group>
           <Group gap="xs">
+            <BranchSelector />
             <Button
               variant="subtle"
               size="compact-sm"

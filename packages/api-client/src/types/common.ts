@@ -33,8 +33,8 @@ export interface DateRangeParams {
 // ─── Shared Enums (mirror backend) ───────────────────────────────────────────
 // Backend uses JsonStringEnumConverter — enum values are PascalCase strings
 
-/** Backend: 0=Draft, 1=Confirmed, 2=Cancelled */
-export type DocumentStatus = 'Draft' | 'Confirmed' | 'Cancelled'
+/** Backend: 0=Draft, 1=Confirmed, 2=Completed, 3=Cancelled */
+export type DocumentStatus = 'Draft' | 'Confirmed' | 'Completed' | 'Cancelled'
 
 /** Backend: 0=Pending, 1=InProgress, 2=Completed, 3=Failed, 4=Cancelled */
 export type DeliveryStatus = 'Pending' | 'InProgress' | 'Completed' | 'Failed' | 'Cancelled'

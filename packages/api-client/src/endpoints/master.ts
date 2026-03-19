@@ -64,7 +64,7 @@ export const categoriesApi = {
 // ─── Warehouses ───────────────────────────────────────────────────────────────
 export const warehousesApi = {
   list: (params?: WarehouseListParams) =>
-    apiClient.get<PagedResult<WarehouseDto>>('/warehouses', { params: { pageSize: 999, ...params } }),
+    apiClient.get<PagedResult<WarehouseDto>>('/warehouses', { params }),
   getById: (id: string) =>
     apiClient.get<WarehouseDto>(`/warehouses/${id}`),
   create: (body: CreateWarehouseRequest) =>
@@ -79,7 +79,7 @@ export const warehousesApi = {
 // ─── Branches ─────────────────────────────────────────────────────────────────
 export const branchesApi = {
   list: (params?: BranchListParams) =>
-    apiClient.get<PagedResult<BranchDto>>('/branches', { params: { pageSize: 999, ...params } }),
+    apiClient.get<PagedResult<BranchDto>>('/branches', { params }),
   getTree: () =>
     apiClient.get<BranchDto[]>('/branches/tree'),
   getById: (id: string) =>

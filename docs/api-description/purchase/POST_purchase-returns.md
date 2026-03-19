@@ -24,6 +24,7 @@ Content-Type: application/json
   "returnDate": "2026-03-10T15:00:00Z",
   "reason": "Hàng không đúng quy cách",
   "isRefunded": false,
+  "branchId": "branch-uuid-1",
   "lines": [
     {
       "productId": "prod-uuid-1",
@@ -48,6 +49,7 @@ Content-Type: application/json
 | `lines[].unitId` | Bắt buộc |
 | `lines[].quantity` | > 0 |
 | `lines[].unitCost` | ≥ 0 |
+| `branchId` | Không bắt buộc, GUID chi nhánh phát sinh. Backend validate quyền truy cập |
 
 ## Response 201
 

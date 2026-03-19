@@ -1,0 +1,346 @@
+{
+  "info": {
+    "_postman_id": "blog-public-api-collection-v1",
+    "name": "CMS — Blog Public API",
+    "description": "Bộ request đầy đủ cho Blog Public API (không cần xác thực):\n- Posts: danh sách, featured, chi tiết theo slug\n- Categories, Tags\n- Pricing plans, Testimonials, FAQs\n- Static pages, Site settings\n- Contact form\n\n## Hướng dẫn sử dụng\n1. Cập nhật biến `baseUrl` (mặc định `http://localhost:5003`).\n2. Tất cả endpoint đều public, không cần token.\n\n## Caching\n| Endpoint | Duration |\n|----------|----------|\n| Posts list, detail | 60s |\n| Featured posts | 120s |\n| Categories, Tags, FAQs | 120s |\n| Pricing, Testimonials | 300s |\n| Settings, Pages | 600s |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5003", "type": "string" },
+    { "key": "postSlug", "value": "gioi-thieu-pos-pro", "type": "string" },
+    { "key": "pageSlug", "value": "chinh-sach-bao-mat", "type": "string" }
+  ],
+  "auth": { "type": "noauth" },
+  "item": [
+    {
+      "name": "📝 Posts",
+      "description": "Bài viết công khai (chỉ Published).\nRoute: /api/v1/posts",
+      "item": [
+        {
+          "name": "Danh sách bài viết",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has items', () => pm.expect(res.items).to.be.an('array'));",
+                  "pm.test('Has totalCount', () => pm.expect(res).to.have.property('totalCount'));",
+                  "if (res.items.length > 0) {",
+                  "    pm.collectionVariables.set('postSlug', res.items[0].slug);",
+                  "    console.log('✅ postSlug saved:', res.items[0].slug);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/posts?page=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "posts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "categorySlug", "value": "", "disabled": true },
+                { "key": "tagSlug", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Danh sách bài viết Published (phân trang). Lọc theo search, categorySlug, tagSlug.\nResponse cache: 60 giây."
+          }
+        },
+        {
+          "name": "Bài viết nổi bật (featured)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/posts/featured",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "posts", "featured"]
+            },
+            "description": "Danh sách bài viết được đánh dấu featured (tối đa 10).\nResponse cache: 120 giây."
+          }
+        },
+        {
+          "name": "Chi tiết bài viết (theo slug)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has content', () => pm.expect(res).to.have.property('content'));",
+                  "pm.test('Has categories', () => pm.expect(res.categories).to.be.an('array'));",
+                  "pm.test('Has tags', () => pm.expect(res.tags).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/posts/{{postSlug}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "posts", "{{postSlug}}"]
+            },
+            "description": "Chi tiết bài viết theo slug (tự động tăng view count).\nResponse cache: 60 giây."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🗂️ Categories",
+      "description": "Danh mục công khai (chỉ active).\nRoute: /api/v1/categories",
+      "item": [
+        {
+          "name": "Danh sách categories (active)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories"]
+            },
+            "description": "Danh sách categories đang active, sắp xếp theo sortOrder.\nResponse cache: 120 giây."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏷️ Tags",
+      "description": "Tags công khai.\nRoute: /api/v1/tags",
+      "item": [
+        {
+          "name": "Danh sách tags",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tags",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tags"]
+            },
+            "description": "Tất cả tags.\nResponse cache: 120 giây."
+          }
+        }
+      ]
+    },
+    {
+      "name": "💰 Pricing Plans",
+      "description": "Gói giá công khai (chỉ active).\nRoute: /api/v1/pricing",
+      "item": [
+        {
+          "name": "Danh sách pricing plans (active)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pricing",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "pricing"]
+            },
+            "description": "Danh sách pricing plans đang active, sắp xếp theo sortOrder.\nResponse cache: 300 giây."
+          }
+        }
+      ]
+    },
+    {
+      "name": "⭐ Testimonials",
+      "description": "Đánh giá khách hàng (chỉ visible).\nRoute: /api/v1/testimonials",
+      "item": [
+        {
+          "name": "Danh sách testimonials (visible)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/testimonials",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "testimonials"]
+            },
+            "description": "Danh sách testimonials đang visible, sắp xếp theo sortOrder.\nResponse cache: 300 giây."
+          }
+        }
+      ]
+    },
+    {
+      "name": "❓ FAQs",
+      "description": "Câu hỏi thường gặp (chỉ active).\nRoute: /api/v1/faqs",
+      "item": [
+        {
+          "name": "Danh sách FAQs (active)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faqs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "faqs"]
+            },
+            "description": "Danh sách FAQs đang active, sắp xếp theo sortOrder.\nResponse cache: 120 giây."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📄 Static Pages",
+      "description": "Trang tĩnh công khai (chỉ Published).\nRoute: /api/v1/pages",
+      "item": [
+        {
+          "name": "Chi tiết page (theo slug)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has content', () => pm.expect(res).to.have.property('content'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pages/{{pageSlug}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "pages", "{{pageSlug}}"]
+            },
+            "description": "Chi tiết static page theo slug (chỉ Published).\nResponse cache: 600 giây."
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ Site Settings",
+      "description": "Cấu hình public.\nRoute: /api/v1/settings",
+      "item": [
+        {
+          "name": "Danh sách settings (public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settings"]
+            },
+            "description": "Tất cả settings đánh dấu IsPublic.\nResponse cache: 600 giây."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📩 Contact",
+      "description": "Gửi yêu cầu liên hệ.\nRoute: /api/v1/contact\nRate limit: 5 request/phút",
+      "item": [
+        {
+          "name": "Gửi yêu cầu liên hệ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has id', () => pm.expect(res).to.have.property('id'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyễn Văn A\",\n  \"email\": \"nguyenvana@example.com\",\n  \"phone\": \"0901234567\",\n  \"subject\": \"Hỏi về gói Pro\",\n  \"message\": \"Tôi muốn tìm hiểu thêm về tính năng quản lý kho trong gói Pro. Xin cho tôi thông tin chi tiết.\",\n  \"type\": \"Sales\",\n  \"priority\": \"Normal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contact",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "contact"]
+            },
+            "description": "Gửi yêu cầu liên hệ. Rate limit 5 req/phút.\nType: General, Sales, Support, Partnership.\nPriority: Normal, High, Urgent."
+          }
+        }
+      ]
+    }
+  ]
+}

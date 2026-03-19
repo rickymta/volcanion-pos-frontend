@@ -9,6 +9,7 @@ import type { DataTableColumn } from '@pos/ui'
 import { inventoryApi, warehousesApi } from '@pos/api-client'
 import type { StockTransferDto, StockTransferListParams } from '@pos/api-client'
 import { DocumentStatusLabel, formatDate } from '@pos/utils'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 type Row = StockTransferDto & Record<string, unknown>
 
@@ -29,6 +30,8 @@ export default function StockTransferListPage() {
   const [fromDate, setFromDate] = useState<Date | null>(null)
   const [toDate, setToDate] = useState<Date | null>(null)
 
+  const { activeBranchId } = useBranchStore()
+
   const params: StockTransferListParams = {
     page,
     pageSize: PAGE_SIZE,
@@ -37,13 +40,14 @@ export default function StockTransferListPage() {
     toWarehouseId: toWarehouseId ?? undefined,
     fromDate: fromDate ? fromDate.toISOString().slice(0, 10) : undefined,
     toDate: toDate ? toDate.toISOString().slice(0, 10) : undefined,
+    branchId: activeBranchId ?? undefined,
   }
 
   const { data: warehousesData } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => warehousesApi.list(),
+    queryFn: () => warehousesApi.list({ pageSize: 50 }),
   })
-  const warehouseOptions = (warehousesData ?? []).map((w) => ({ value: w.id, label: w.name }))
+  const warehouseOptions = (warehousesData?.items ?? []).map((w) => ({ value: w.id, label: w.name }))
 
   const { data, isLoading } = useQuery({
     queryKey: ['stock-transfers', params],

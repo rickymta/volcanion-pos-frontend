@@ -11,7 +11,7 @@ export interface ApiError {
   statusCode?: number
 }
 
-export type TenantStatus = 'Active' | 'Inactive' | 'Suspended'
+export type TenantStatus = 'Active' | 'Inactive' | 'Suspended' | 'Provisioning' | 'Failed'
 
 export type SubscriptionPlan = 'Free' | 'Basic' | 'Standard' | 'Pro' | 'Enterprise'
 

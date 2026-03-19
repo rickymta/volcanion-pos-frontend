@@ -21,6 +21,7 @@ Content-Type: application/json
   "orderDate": "2026-03-10T08:00:00Z",
   "note": "Đặt hàng tháng 3",
   "discountAmount": 500000,
+  "branchId": "branch-uuid-1",
   "lines": [
     {
       "productId": "prod-uuid-1",
@@ -46,6 +47,7 @@ Content-Type: application/json
 | `lines[].quantity` | > 0 |
 | `lines[].unitPrice` | ≥ 0 |
 | `lines[].vatRate` | 0 – 100 |
+| `branchId` | Không bắt buộc, GUID chi nhánh phát sinh. Backend validate quyền truy cập |
 
 ## Logic
 

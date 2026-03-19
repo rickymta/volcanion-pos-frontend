@@ -23,6 +23,7 @@ Content-Type: application/json
   "toWarehouseId": "wh-uuid-2",
   "transferDate": "2026-03-10T08:00:00Z",
   "note": "Điều chuyển tháng 3",
+  "branchId": "branch-uuid-1",
   "lines": [
     {
       "productId": "prod-uuid-1",
@@ -45,6 +46,7 @@ Content-Type: application/json
 | `lines[].productId` | Bắt buộc |
 | `lines[].unitId` | Bắt buộc |
 | `lines[].quantity` | > 0 |
+| `branchId` | Không bắt buộc, GUID chi nhánh phát sinh. Backend validate quyền truy cập |
 
 ## Response 201
 

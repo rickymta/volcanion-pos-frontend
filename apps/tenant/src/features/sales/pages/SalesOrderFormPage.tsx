@@ -1,17 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Stack, Group, Button, NumberInput, Select, ActionIcon,
   Table, Paper, Text, Divider, Textarea,
 } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
 import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconTrash, IconDeviceFloppy } from '@tabler/icons-react'
 import { PageHeader } from '@pos/ui'
-import { salesOrdersApi, customersApi, productsApi } from '@pos/api-client'
+import { salesOrdersApi, customersApi } from '@pos/api-client'
 import type { ProductDto } from '@pos/api-client'
 import { formatVND } from '@pos/utils'
+import { ProductSelectCell } from '../../../components/ProductSelectCell'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 interface LineItem {
   key: number
@@ -41,8 +44,11 @@ export default function SalesOrderFormPage() {
   const isEdit = !!id
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { activeBranchId } = useBranchStore()
 
   const [customerId, setCustomerId] = useState<string | null>(null)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [debouncedCustomerSearch] = useDebouncedValue(customerSearch, 300)
   const [orderDate, setOrderDate] = useState<Date | null>(new Date())
   const [note, setNote] = useState('')
   const [lines, setLines] = useState<LineItem[]>([makeEmptyLine()])
@@ -74,32 +80,35 @@ export default function SalesOrderFormPage() {
     }
   }, [existingOrder])
 
-  // Load customers & products
+  // Customers — server-side debounced search
   const { data: customersData } = useQuery({
-    queryKey: ['customers-all'],
-    queryFn: () => customersApi.list({ pageSize: 500 }),
+    queryKey: ['customers-search', debouncedCustomerSearch],
+    queryFn: () => customersApi.list({ search: debouncedCustomerSearch || undefined, pageSize: 20 }),
   })
-
-  const [productSearch, setProductSearch] = useState('')
-  const { data: productsData } = useQuery({
-    queryKey: ['products-search', productSearch],
-    queryFn: () => productsApi.list({ search: productSearch, pageSize: 50 }),
+  // Keep selected customer label visible in edit mode
+  const { data: selectedCustomer } = useQuery({
+    queryKey: ['customer', customerId],
+    queryFn: () => customersApi.getById(customerId!),
+    enabled: !!customerId,
+    staleTime: Infinity,
   })
-
-  const productMap: Record<string, ProductDto> = {}
-  ;(productsData?.items ?? []).forEach((p) => { productMap[p.id] = p as ProductDto })
+  const customerOptions = useMemo(() => {
+    const results = (customersData?.items ?? []).map((c) => ({ value: c.id, label: c.name }))
+    if (customerId && selectedCustomer && !results.find((o) => o.value === customerId))
+      results.unshift({ value: selectedCustomer.id, label: selectedCustomer.name })
+    return results
+  }, [customersData?.items, selectedCustomer, customerId])
 
   // Line operations
   const updateLine = <K extends keyof LineItem>(key: number, field: K, value: LineItem[K]) => {
     setLines((prev) => prev.map((l) => l.key === key ? { ...l, [field]: value } : l))
   }
 
-  const handleProductSelect = (key: number, productId: string | null) => {
+  const handleProductSelect = (key: number, productId: string | null, product: ProductDto | null) => {
     if (!productId) {
       setLines((prev) => prev.map((l) => l.key === key ? { ...l, productId: null, unitId: '', unitName: '' } : l))
       return
     }
-    const product = productMap[productId]
     setLines((prev) =>
       prev.map((l) =>
         l.key === key
@@ -108,7 +117,7 @@ export default function SalesOrderFormPage() {
               productId,
               unitId: product?.baseUnitId ?? '',
               unitName: (product as any)?.baseUnit ?? '',
-              unitPrice: product?.sellingPrice ?? 0,
+              unitPrice: product?.salePrice ?? 0,
             }
           : l
       )
@@ -140,6 +149,7 @@ export default function SalesOrderFormPage() {
         customerId,
         orderDate: orderDate.toISOString().slice(0, 10),
         note: note || undefined,
+        branchId: activeBranchId ?? undefined,
         lines: validLines.map((l) => ({
           productId: l.productId!,
           unitId: l.unitId,
@@ -166,8 +176,6 @@ export default function SalesOrderFormPage() {
     },
   })
 
-  const productOptions = (productsData?.items ?? []).map((p) => ({ value: p.id, label: p.name + ' (' + p.code + ')' }))
-  const customerOptions = (customersData?.items ?? []).map((c) => ({ value: c.id, label: c.name }))
 
   return (
     <Stack gap="lg">
@@ -195,13 +203,17 @@ export default function SalesOrderFormPage() {
           <Group grow>
             <Select
               label="Khách hàng"
-              placeholder="Chọn khách hàng..."
+              placeholder="Tìm khách hàng..."
               required
               searchable
               clearable
               data={customerOptions}
               value={customerId}
               onChange={setCustomerId}
+              searchValue={customerSearch}
+              onSearchChange={setCustomerSearch}
+              filter={({ options }) => options}
+              nothingFoundMessage="Không tìm thấy"
             />
             <DateInput
               label="Ngày đặt hàng"
@@ -246,14 +258,9 @@ export default function SalesOrderFormPage() {
               {lines.map((line) => (
                 <Table.Tr key={line.key}>
                   <Table.Td>
-                    <Select
-                      placeholder="Chọn sản phẩm..."
-                      searchable
-                      data={productOptions}
+                    <ProductSelectCell
                       value={line.productId}
-                      onChange={(v) => handleProductSelect(line.key, v)}
-                      onSearchChange={setProductSearch}
-                      size="xs"
+                      onChange={(pid, product) => handleProductSelect(line.key, pid, product)}
                     />
                   </Table.Td>
                   <Table.Td>

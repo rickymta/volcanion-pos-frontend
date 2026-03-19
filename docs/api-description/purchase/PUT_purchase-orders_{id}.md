@@ -28,6 +28,7 @@ Content-Type: application/json
   "orderDate": "2026-03-11T08:00:00Z",
   "note": "Đặt hàng tháng 3 (sửa)",
   "discountAmount": 600000,
+  "branchId": "branch-uuid-1",
   "lines": [
     {
       "productId": "prod-uuid-1",

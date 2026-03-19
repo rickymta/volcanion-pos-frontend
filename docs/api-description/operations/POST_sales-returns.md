@@ -22,6 +22,7 @@ Content-Type: application/json
   "returnDate": "2026-03-10T10:00:00Z",
   "reason": "Hàng lỗi",
   "isRefunded": false,
+  "branchId": "branch-uuid-1",
   "lines": [
     {
       "productId": "prod-uuid-1",
@@ -41,6 +42,7 @@ Content-Type: application/json
 | `reason` | Không | Lý do trả hàng |
 | `isRefunded` | ✔ | Đã hoàn tiền ngay chưa |
 | `lines` | ✔ | Danh sách sản phẩm trả (≥ 1 dòng) |
+| `branchId` | Không | GUID chi nhánh phát sinh. Backend validate quyền truy cập |
 
 ## Logic
 

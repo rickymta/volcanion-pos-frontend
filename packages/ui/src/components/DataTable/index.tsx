@@ -107,17 +107,19 @@ export function DataTable<T extends Record<string, unknown>>({
         </Table.Tbody>
       </Table>
 
-      {totalPages && totalPages > 1 && (
+      {total !== undefined && total > 0 && (
         <Group justify="space-between" align="center">
           <Text size="sm" c="dimmed">
             Tổng: {total} kết quả
           </Text>
-          <Pagination
-            total={totalPages}
-            value={page}
-            onChange={onPageChange}
-            size="sm"
-          />
+          {totalPages && totalPages > 1 && (
+            <Pagination
+              total={totalPages}
+              value={page}
+              onChange={onPageChange}
+              size="sm"
+            />
+          )}
         </Group>
       )}
     </Stack>

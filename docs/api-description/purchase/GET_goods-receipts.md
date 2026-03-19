@@ -21,6 +21,7 @@ X-Tenant-Id: {tenantId}
 | `status` | int | Không | `0`=Draft, `1`=Confirmed, `2`=Cancelled |
 | `fromDate` | datetime | Không | Từ ngày (UTC) |
 | `toDate` | datetime | Không | Đến ngày (UTC) |
+| `branchId` | guid | Không | Lọc theo chi nhánh (qua PurchaseOrder.BranchId) |
 | `page` | int | Không | Mặc định: 1 |
 | `pageSize` | int | Không | Mặc định: 20 |
 

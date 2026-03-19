@@ -2,9 +2,9 @@ import { Stack, Group, Button, Badge, Text, Paper, Table, Divider, Loader, Cente
 import { notifications } from '@mantine/notifications'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IconArrowLeft, IconCheck, IconX } from '@tabler/icons-react'
+import { IconArrowLeft, IconCheck, IconX, IconArrowBack } from '@tabler/icons-react'
 import { PageHeader, openConfirm } from '@pos/ui'
-import { goodsReceiptsApi } from '@pos/api-client'
+import { goodsReceiptsApi, purchaseReturnsApi } from '@pos/api-client'
 import { DocumentStatusLabel, formatVND, formatDate } from '@pos/utils'
 
 export default function GoodsReceiptDetailPage() {
@@ -35,7 +35,13 @@ export default function GoodsReceiptDetailPage() {
       void qc.invalidateQueries({ queryKey: ['goods-receipts'] })
       notifications.show({ color: 'green', message: 'Đã hủy phiếu nhập' })
     },
-    onError: () => notifications.show({ color: 'red', message: 'Hủy thất bại' }),
+    onError: (e: Error) => notifications.show({ color: 'red', message: e.message || 'Hủy thất bại' }),
+  })
+
+  const { data: linkedReturns } = useQuery({
+    queryKey: ['purchase-returns', { goodsReceiptId: id }],
+    queryFn: () => purchaseReturnsApi.list({ goodsReceiptId: id }),
+    enabled: !!id && !!receipt && receipt.status === 'Confirmed',
   })
 
   if (isLoading) {
@@ -101,6 +107,16 @@ export default function GoodsReceiptDetailPage() {
                   Hủy
                 </Button>
               </>
+            )}
+            {receipt.status === 'Confirmed' && (
+              <Button
+                color="orange"
+                variant="light"
+                leftSection={<IconArrowBack size={16} />}
+                onClick={() => navigate(`/purchase/returns/new?grId=${id}`)}
+              >
+                Trả hàng NCC
+              </Button>
             )}
           </Group>
         }
@@ -185,6 +201,47 @@ export default function GoodsReceiptDetailPage() {
           </Stack>
         </Paper>
       </Group>
+
+      {(linkedReturns?.items.length ?? 0) > 0 && (
+        <Paper withBorder>
+          <Text fw={600} p="md" pb={0}>Phiếu trả hàng liên kết</Text>
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Mã phiếu</Table.Th>
+                <Table.Th>Ngày trả</Table.Th>
+                <Table.Th>Nhà cung cấp</Table.Th>
+                <Table.Th ta="right">Tiền hoàn trả</Table.Th>
+                <Table.Th>Trạng thái</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {linkedReturns!.items.map((pr) => {
+                const prStatus = DocumentStatusLabel[pr.status as keyof typeof DocumentStatusLabel]
+                return (
+                  <Table.Tr
+                    key={pr.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/purchase/returns/${pr.id}`)}
+                  >
+                    <Table.Td fw={500}>{pr.code}</Table.Td>
+                    <Table.Td>{formatDate(pr.returnDate)}</Table.Td>
+                    <Table.Td>{pr.supplierName}</Table.Td>
+                    <Table.Td ta="right">{formatVND(pr.totalReturnAmount)}</Table.Td>
+                    <Table.Td>
+                      {prStatus ? (
+                        <Badge color={prStatus.color} variant="light" size="sm">{prStatus.label}</Badge>
+                      ) : (
+                        <Badge variant="light" size="sm">{pr.status}</Badge>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                )
+              })}
+            </Table.Tbody>
+          </Table>
+        </Paper>
+      )}
     </Stack>
   )
 }

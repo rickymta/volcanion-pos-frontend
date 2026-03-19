@@ -18,8 +18,10 @@ export const purchaseOrdersApi = {
     apiClient.get<PagedResult<PurchaseOrderDto>>('/purchase-orders', { params }),
   getById: (id: string) =>
     apiClient.get<PurchaseOrderDto>(`/purchase-orders/${id}`),
-  create: (body: CreatePurchaseOrderRequest) =>
-    apiClient.post<PurchaseOrderDto>('/purchase-orders', body),
+  create: (body: CreatePurchaseOrderRequest, idempotencyKey?: string) =>
+    apiClient.post<PurchaseOrderDto>('/purchase-orders', body,
+      idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
+    ),
   update: (id: string, body: UpdatePurchaseOrderRequest) =>
     apiClient.put<PurchaseOrderDto>(`/purchase-orders/${id}`, body),
   confirm: (id: string) =>
@@ -33,8 +35,10 @@ export const goodsReceiptsApi = {
     apiClient.get<PagedResult<GoodsReceiptDto>>('/goods-receipts', { params }),
   getById: (id: string) =>
     apiClient.get<GoodsReceiptDto>(`/goods-receipts/${id}`),
-  create: (body: CreateGoodsReceiptRequest) =>
-    apiClient.post<GoodsReceiptDto>('/goods-receipts', body),
+  create: (body: CreateGoodsReceiptRequest, idempotencyKey?: string) =>
+    apiClient.post<GoodsReceiptDto>('/goods-receipts', body,
+      idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
+    ),
   confirm: (id: string) =>
     apiClient.post<GoodsReceiptDto>(`/goods-receipts/${id}/confirm`),
   cancel: (id: string) =>
@@ -46,8 +50,10 @@ export const purchaseReturnsApi = {
     apiClient.get<PagedResult<PurchaseReturnDto>>('/purchase-returns', { params }),
   getById: (id: string) =>
     apiClient.get<PurchaseReturnDto>(`/purchase-returns/${id}`),
-  create: (body: CreatePurchaseReturnRequest) =>
-    apiClient.post<PurchaseReturnDto>('/purchase-returns', body),
+  create: (body: CreatePurchaseReturnRequest, idempotencyKey?: string) =>
+    apiClient.post<PurchaseReturnDto>('/purchase-returns', body,
+      idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
+    ),
   confirm: (id: string) =>
     apiClient.post<PurchaseReturnDto>(`/purchase-returns/${id}/confirm`),
 }

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Stack, Group, TextInput, Badge, Text, Select, Button } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
 import { DatePickerInput } from '@mantine/dates'
 import { useQuery } from '@tanstack/react-query'
-import { IconSearch, IconX } from '@tabler/icons-react'
 import { PageHeader, DataTable } from '@pos/ui'
 import type { DataTableColumn } from '@pos/ui'
+import { IconSearch, IconX } from '@tabler/icons-react'
 import { auditLogsApi, tenantsApi } from '@pos/sysadmin-client'
 import type { AuditLogDto } from '@pos/sysadmin-client'
 import { formatDateTime } from '@pos/utils'
@@ -23,12 +24,26 @@ export default function AuditLogsPage() {
   const [toDate, setToDate] = useState<Date | null>(null)
   const [page, setPage] = useState(1)
 
-  const { data: tenants } = useQuery({
-    queryKey: ['tenants-list'],
-    queryFn: () => tenantsApi.list({ pageSize: 200 }),
-  })
+  const [tenantSearch, setTenantSearch] = useState('')
+  const [debouncedTenantSearch] = useDebouncedValue(tenantSearch, 300)
 
-  const tenantOptions = (tenants?.items ?? []).map((tenant) => ({ value: tenant.id, label: tenant.name }))
+  const { data: tenantsData } = useQuery({
+    queryKey: ['tenants', debouncedTenantSearch],
+    queryFn: () => tenantsApi.list({ search: debouncedTenantSearch || undefined, pageSize: 20 }),
+  })
+  const { data: selectedTenant } = useQuery({
+    queryKey: ['tenant', tenantId],
+    queryFn: () => tenantsApi.getById(tenantId!),
+    enabled: !!tenantId,
+    staleTime: Infinity,
+  })
+  const tenantOptions = useMemo(() => {
+    const list = (tenantsData?.items ?? []).map((t) => ({ value: t.id, label: t.name }))
+    if (tenantId && selectedTenant && !list.find((o) => o.value === tenantId)) {
+      list.unshift({ value: selectedTenant.id, label: selectedTenant.name })
+    }
+    return list
+  }, [tenantsData, tenantId, selectedTenant])
 
   const params = {
     page,
@@ -109,8 +124,13 @@ export default function AuditLogsPage() {
           placeholder={t('audit_all_tenants')}
           data={tenantOptions}
           value={tenantId}
-          onChange={(v) => { setTenantId(v); setPage(1) }}
+          onChange={(v) => { setTenantId(v); setTenantSearch(''); setPage(1) }}
+          searchValue={tenantSearch}
+          onSearchChange={setTenantSearch}
+          filter={({ options }) => options}
           clearable
+          searchable
+          nothingFoundMessage="Không tìm thấy"
           w={200}
         />
         <TextInput

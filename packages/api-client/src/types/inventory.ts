@@ -63,6 +63,7 @@ export interface StockTransferDto {
   fromWarehouseName: string
   toWarehouseId: string
   toWarehouseName: string
+  branchId?: string
   status: DocumentStatus
   note?: string
   lines: Array<{
@@ -78,6 +79,7 @@ export interface StockTransferListParams extends PaginationParams, DateRangePara
   status?: DocumentStatus
   fromWarehouseId?: string
   toWarehouseId?: string
+  branchId?: string
 }
 
 export interface CreateStockTransferRequest {
@@ -85,6 +87,7 @@ export interface CreateStockTransferRequest {
   toWarehouseId: string
   transferDate: string
   note?: string
+  branchId?: string
   lines: Array<{
     productId: string
     unitId: string

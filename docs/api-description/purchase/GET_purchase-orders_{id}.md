@@ -23,6 +23,7 @@ X-Tenant-Id: {tenantId}
     "code": "PO-20260310-001",
     "supplierId": "sup-uuid-1",
     "supplierName": "Công ty TNHH ABC",
+    "branchId": "branch-uuid-1",
     "orderDate": "2026-03-10T08:00:00Z",
     "status": 0,
     "note": "Đặt hàng tháng 3",

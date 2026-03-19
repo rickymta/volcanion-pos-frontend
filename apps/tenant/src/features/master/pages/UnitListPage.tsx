@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react'
 import { Stack, Group, Button, TextInput, ActionIcon, Tooltip, Badge, Switch } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { useDisclosure } from '@mantine/hooks'
+import { useDisclosure, useDebouncedValue } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { IconPlus, IconEdit, IconTrash, IconSearch } from '@tabler/icons-react'
@@ -16,6 +16,8 @@ type Row = UnitDto & Record<string, unknown>
 export default function UnitListPage() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [debouncedSearch] = useDebouncedValue(search, 300)
   const [editing, setEditing] = useState<UnitDto | null>(null)
   const [opened, { open, close }] = useDisclosure(false)
   const isManager = useIsManager()
@@ -29,10 +31,11 @@ export default function UnitListPage() {
     },
   })
 
-  const { data: units = [], isLoading } = useQuery({
-    queryKey: ['units'],
-    queryFn: () => unitsApi.list({ pageSize: 999 }).then((r) => r.items),
+  const { data: unitsData, isLoading } = useQuery({
+    queryKey: ['units', debouncedSearch, page],
+    queryFn: () => unitsApi.list({ keyword: debouncedSearch || undefined, page, pageSize: 20 }),
   })
+  const units = unitsData?.items ?? []
 
   const createMutation = useMutation({
     mutationFn: (values: CreateUnitRequest) => unitsApi.create(values),
@@ -90,11 +93,7 @@ export default function UnitListPage() {
     })
   }
 
-  const filtered = (units as Row[]).filter(
-    (u) =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      (u.symbol as string).toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = (units as Row[])
 
   const columns: DataTableColumn<Row>[] = [
     { key: 'name', header: 'Tên đơn vị' },
@@ -154,7 +153,7 @@ export default function UnitListPage() {
         placeholder="Tìm theo tên hoặc ký hiệu..."
         leftSection={<IconSearch size={16} />}
         value={search}
-        onChange={(e) => setSearch(e.currentTarget.value)}
+        onChange={(e) => { setSearch(e.currentTarget.value); setPage(1) }}
         w={300}
       />
 
@@ -162,6 +161,10 @@ export default function UnitListPage() {
         data={filtered}
         columns={columns}
         isLoading={isLoading}
+        total={unitsData?.totalCount}
+        page={page}
+        pageSize={20}
+        onPageChange={setPage}
         rowKey="id"
       />
 

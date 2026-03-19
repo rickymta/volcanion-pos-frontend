@@ -25,6 +25,7 @@ X-Tenant-Id: {tenantId}
     "fromWarehouseName": "Kho Hà Nội",
     "toWarehouseId": "wh-uuid-2",
     "toWarehouseName": "Kho TP.HCM",
+    "branchId": "branch-uuid-1",
     "transferDate": "2026-03-10T08:00:00Z",
     "status": 0,
     "note": "Điều chuyển tháng 3",

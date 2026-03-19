@@ -41,8 +41,10 @@ export const salesReturnsApi = {
     apiClient.get<PagedResult<SalesReturnDto>>('/sales-returns', { params }),
   getById: (id: string) =>
     apiClient.get<SalesReturnDto>(`/sales-returns/${id}`),
-  create: (body: CreateSalesReturnRequest) =>
-    apiClient.post<SalesReturnDto>('/sales-returns', body),
+  create: (body: CreateSalesReturnRequest, idempotencyKey?: string) =>
+    apiClient.post<SalesReturnDto>('/sales-returns', body,
+      idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
+    ),
   confirm: (id: string) =>
     apiClient.post<SalesReturnDto>(`/sales-returns/${id}/confirm`),
 }

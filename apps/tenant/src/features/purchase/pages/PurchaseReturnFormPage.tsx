@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Stack, Group, Button, NumberInput, Select, ActionIcon,
-  Table, Paper, Text, Textarea, Checkbox,
+  Table, Paper, Text, Textarea, Checkbox, Badge, Tooltip,
 } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconTrash, IconDeviceFloppy } from '@tabler/icons-react'
 import { PageHeader } from '@pos/ui'
-import { purchaseReturnsApi, goodsReceiptsApi, productsApi } from '@pos/api-client'
+import { purchaseReturnsApi, goodsReceiptsApi, purchaseOrdersApi } from '@pos/api-client'
 import type { ProductDto } from '@pos/api-client'
 import { formatVND } from '@pos/utils'
+import { ProductSelectCell } from '../../../components/ProductSelectCell'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 interface LineItem {
   key: number
@@ -35,37 +37,95 @@ const makeEmptyLine = (): LineItem => ({
 export default function PurchaseReturnFormPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { activeBranchId } = useBranchStore()
+  const [searchParams] = useSearchParams()
+  const grIdFromQuery = searchParams.get('grId')
 
-  const [goodsReceiptId, setGoodsReceiptId] = useState<string | null>(null)
+  const [goodsReceiptId, setGoodsReceiptId] = useState<string | null>(grIdFromQuery)
   const [returnDate, setReturnDate] = useState<Date | null>(new Date())
   const [reason, setReason] = useState('')
   const [isRefunded, setIsRefunded] = useState(false)
   const [lines, setLines] = useState<LineItem[]>([makeEmptyLine()])
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   const { data: goodsReceiptsData } = useQuery({
-    queryKey: ['goods-receipts-all'],
-    queryFn: () => goodsReceiptsApi.list({ pageSize: 500 }),
+    queryKey: ['goods-receipts', { status: 'Confirmed' }],
+    queryFn: () => goodsReceiptsApi.list({ status: 'Confirmed', pageSize: 50 }),
   })
 
-  const [productSearch, setProductSearch] = useState('')
-  const { data: productsData } = useQuery({
-    queryKey: ['products-search', productSearch],
-    queryFn: () => productsApi.list({ search: productSearch, pageSize: 50 }),
+  // Load selected GR detail to auto-fill lines
+  const { data: selectedGR } = useQuery({
+    queryKey: ['goods-receipt', goodsReceiptId],
+    queryFn: () => goodsReceiptsApi.getById(goodsReceiptId!),
+    enabled: !!goodsReceiptId,
   })
 
-  const productMap: Record<string, ProductDto> = {}
-  ;(productsData?.items ?? []).forEach((p) => { productMap[p.id] = p as ProductDto })
+  useEffect(() => {
+    if (selectedGR) {
+      setLines(
+        selectedGR.lines.map((l) => ({
+          key: ++lineKey,
+          productId: l.productId,
+          unitId: l.unitId,
+          unitName: l.unitName,
+          quantity: l.quantity,
+          unitCost: l.unitCost,
+        }))
+      )
+    }
+  }, [selectedGR])
+
+  // Chain: GR → PO → supplierId
+  const { data: linkedPO } = useQuery({
+    queryKey: ['purchase-order', selectedGR?.purchaseOrderId],
+    queryFn: () => purchaseOrdersApi.getById(selectedGR!.purchaseOrderId!),
+    enabled: !!selectedGR?.purchaseOrderId,
+  })
+
+  // Load existing confirmed PRs for this GR (get IDs, then load detail for lines)
+  const { data: existingPRsMeta } = useQuery({
+    queryKey: ['purchase-returns-meta', { goodsReceiptId, status: 'Confirmed' }],
+    queryFn: () => purchaseReturnsApi.list({ goodsReceiptId: goodsReceiptId!, status: 'Confirmed', pageSize: 50 }),
+    enabled: !!goodsReceiptId,
+  })
+
+  // Load each PR detail in parallel to get lines (list API returns lines: [])
+  const existingPRDetails = useQueries({
+    queries: (existingPRsMeta?.items ?? []).map((pr) => ({
+      queryKey: ['purchase-return', pr.id],
+      queryFn: () => purchaseReturnsApi.getById(pr.id),
+    })),
+  })
+
+  // Map: productId → received qty from GR
+  const grLineQtyMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    ;(selectedGR?.lines ?? []).forEach((l) => {
+      map[l.productId] = (map[l.productId] ?? 0) + l.quantity
+    })
+    return map
+  }, [selectedGR])
+
+  // Map: productId → already returned qty in confirmed PRs
+  const returnedQtyMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    existingPRDetails.forEach((result) => {
+      result.data?.lines.forEach((line) => {
+        map[line.productId] = (map[line.productId] ?? 0) + line.quantity
+      })
+    })
+    return map
+  }, [existingPRDetails])
 
   const updateLine = <K extends keyof LineItem>(key: number, field: K, value: LineItem[K]) => {
     setLines((prev) => prev.map((l) => l.key === key ? { ...l, [field]: value } : l))
   }
 
-  const handleProductSelect = (key: number, productId: string | null) => {
+  const handleProductSelect = (key: number, productId: string | null, product: ProductDto | null) => {
     if (!productId) {
       setLines((prev) => prev.map((l) => l.key === key ? { ...l, productId: null, unitId: '', unitName: '' } : l))
       return
     }
-    const product = productMap[productId]
     setLines((prev) =>
       prev.map((l) =>
         l.key === key
@@ -84,20 +144,24 @@ export default function PurchaseReturnFormPage() {
     mutationFn: async () => {
       if (!goodsReceiptId) throw new Error('Vui lòng chọn phiếu nhập hàng liên kết')
       if (!returnDate) throw new Error('Vui lòng chọn ngày trả hàng')
+      const supplierId = linkedPO?.supplierId
+      if (!supplierId) throw new Error('Không xác định được nhà cung cấp, vui lòng đợi tải xong')
       const validLines = lines.filter((l) => l.productId)
       if (validLines.length === 0) throw new Error('Vui lòng thêm ít nhất 1 sản phẩm')
       return purchaseReturnsApi.create({
         goodsReceiptId,
+        supplierId,
         returnDate: returnDate.toISOString().slice(0, 10),
         reason: reason || undefined,
         isRefunded,
+        branchId: activeBranchId ?? undefined,
         lines: validLines.map((l) => ({
           productId: l.productId!,
           unitId: l.unitId,
           quantity: l.quantity,
           unitCost: l.unitCost,
         })),
-      })
+      }, idempotencyKey)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['purchase-returns'] })
@@ -107,8 +171,7 @@ export default function PurchaseReturnFormPage() {
     onError: (e: Error) => notifications.show({ color: 'red', message: e.message }),
   })
 
-  const productOptions = (productsData?.items ?? []).map((p) => ({ value: p.id, label: `${p.name} (${p.code})` }))
-  const goodsReceiptOptions = (goodsReceiptsData?.items ?? []).map((r) => ({ value: r.id, label: `${r.code} (${r.warehouseName})` }))
+  const goodsReceiptOptions = (goodsReceiptsData?.items ?? []).map((r) => ({ value: r.id, label: `${r.code} — ${r.purchaseOrderCode ?? ''} (${r.warehouseName})` }))
 
   return (
     <Stack gap="lg">
@@ -180,6 +243,13 @@ export default function PurchaseReturnFormPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th style={{ minWidth: 220 }}>Sản phẩm</Table.Th>
+                {selectedGR && (
+                  <>
+                    <Table.Th style={{ width: 80 }} ta="center">Theo GR</Table.Th>
+                    <Table.Th style={{ width: 80 }} ta="center">Đã trả</Table.Th>
+                    <Table.Th style={{ width: 80 }} ta="center">Còn lại</Table.Th>
+                  </>
+                )}
                 <Table.Th style={{ width: 100 }}>Số lượng</Table.Th>
                 <Table.Th style={{ width: 140 }}>Đơn giá</Table.Th>
                 <Table.Th style={{ width: 140 }}>Thành tiền</Table.Th>
@@ -190,16 +260,41 @@ export default function PurchaseReturnFormPage() {
               {lines.map((line) => (
                 <Table.Tr key={line.key}>
                   <Table.Td>
-                    <Select
-                      placeholder="Chọn sản phẩm..."
-                      searchable
-                      data={productOptions}
+                    <ProductSelectCell
                       value={line.productId}
-                      onChange={(v) => handleProductSelect(line.key, v)}
-                      onSearchChange={setProductSearch}
-                      size="xs"
+                      onChange={(pid, product) => handleProductSelect(line.key, pid, product)}
                     />
                   </Table.Td>
+                  {selectedGR && (() => {
+                    const received = line.productId ? (grLineQtyMap[line.productId] ?? 0) : 0
+                    const returned = line.productId ? (returnedQtyMap[line.productId] ?? 0) : 0
+                    const remaining = received - returned
+                    const isOver = line.quantity > remaining && remaining > 0
+                    return (
+                      <>
+                        <Table.Td ta="center">
+                          <Text size="xs" c={received > 0 ? undefined : 'dimmed'}>{received > 0 ? received : '—'}</Text>
+                        </Table.Td>
+                        <Table.Td ta="center">
+                          <Text size="xs" c={returned > 0 ? 'orange' : 'dimmed'}>{returned > 0 ? returned : '0'}</Text>
+                        </Table.Td>
+                        <Table.Td ta="center">
+                          <Tooltip
+                            label="Số lượng trả vượt quá số còn lại"
+                            disabled={!isOver}
+                          >
+                            <Badge
+                              size="sm"
+                              color={remaining <= 0 ? 'red' : isOver ? 'orange' : 'green'}
+                              variant="light"
+                            >
+                              {received > 0 ? remaining : '—'}
+                            </Badge>
+                          </Tooltip>
+                        </Table.Td>
+                      </>
+                    )
+                  })()}
                   <Table.Td>
                     <NumberInput
                       value={line.quantity}

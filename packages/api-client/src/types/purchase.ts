@@ -21,9 +21,11 @@ export interface PurchaseOrderDto {
   orderDate: string
   supplierId: string
   supplierName: string
+  branchId?: string
   status: DocumentStatus
   /** Backend field name is 'totalAmount' */
   totalAmount: number
+  discountAmount: number
   /** Backend field name is 'vatAmount' */
   vatAmount: number
   grandTotal: number
@@ -35,12 +37,15 @@ export interface PurchaseOrderListParams extends PaginationParams, DateRangePara
   search?: string
   supplierId?: string
   status?: DocumentStatus
+  branchId?: string
 }
 
 export interface CreatePurchaseOrderRequest {
   supplierId: string
   orderDate: string
   note?: string
+  discountAmount?: number
+  branchId?: string
   lines: Array<{
     productId: string
     unitId: string
@@ -82,13 +87,15 @@ export interface GoodsReceiptDto {
 }
 
 export interface GoodsReceiptListParams extends PaginationParams, DateRangeParams {
+  purchaseOrderId?: string
   supplierId?: string
   warehouseId?: string
   status?: DocumentStatus
+  branchId?: string
 }
 
 export interface CreateGoodsReceiptRequest {
-  purchaseOrderId?: string
+  purchaseOrderId: string
   warehouseId: string
   receiptDate: string
   note?: string
@@ -114,6 +121,7 @@ export interface PurchaseReturnDto {
   goodsReceiptCode: string
   supplierId: string
   supplierName: string
+  branchId?: string
   status: DocumentStatus
   /** Backend field name is 'totalReturnAmount' */
   totalReturnAmount: number
@@ -137,14 +145,16 @@ export interface PurchaseReturnListParams extends PaginationParams, DateRangePar
   supplierId?: string
   goodsReceiptId?: string
   status?: DocumentStatus
+  branchId?: string
 }
 
 export interface CreatePurchaseReturnRequest {
-  /** Required: source goods receipt */
   goodsReceiptId: string
+  supplierId: string
   returnDate: string
   reason?: string
   isRefunded: boolean
+  branchId?: string
   lines: Array<{
     productId: string
     unitId: string

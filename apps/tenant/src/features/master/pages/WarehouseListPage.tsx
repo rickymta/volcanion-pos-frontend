@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react'
 import { Stack, Group, Button, TextInput, ActionIcon, Tooltip, Badge, Select, Switch } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { useDisclosure } from '@mantine/hooks'
+import { useDisclosure, useDebouncedValue } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { IconPlus, IconEdit, IconTrash, IconSearch } from '@tabler/icons-react'
@@ -18,7 +18,7 @@ interface FormValues {
   code: string
   address: string
   branchId: string
-  status: number
+  status: 'Active' | 'Inactive'
 }
 
 function flattenBranches(branches: BranchDto[]): { value: string; label: string }[] {
@@ -33,11 +33,13 @@ export default function WarehouseListPage() {
   const canWrite = useIsManager()  // POST / PUT  Admin | Manager
   const canDelete = useIsAdmin()   // DELETE  Admin only
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [debouncedSearch] = useDebouncedValue(search, 300)
   const [editing, setEditing] = useState<WarehouseDto | null>(null)
   const [opened, { open, close }] = useDisclosure(false)
 
   const form = useForm<FormValues>({
-    initialValues: { name: '', code: '', address: '', branchId: '', status: 1 },
+    initialValues: { name: '', code: '', address: '', branchId: '', status: 'Active' },
     validate: {
       name: (v) => (v.trim() ? null : 'Tên kho không được trống'),
       code: (v) => (v.trim() ? null : 'Mã kho không được trống'),
@@ -45,10 +47,10 @@ export default function WarehouseListPage() {
   })
 
   const { data: pagedWarehouses, isLoading } = useQuery({
-    queryKey: ['warehouses'],
-    queryFn: () => warehousesApi.list({ pageSize: 999 }),
+    queryKey: ['warehouses', debouncedSearch, page],
+    queryFn: () => warehousesApi.list({ keyword: debouncedSearch || undefined, page, pageSize: 20 }),
   })
-  const warehouses: WarehouseDto[] = pagedWarehouses?.items ?? []
+  const warehouses = pagedWarehouses?.items ?? []
 
   const { data: branchTree = [] } = useQuery({
     queryKey: ['branches', 'tree'],
@@ -135,12 +137,7 @@ export default function WarehouseListPage() {
     })
   }
 
-  const filtered = (warehouses as Row[]).filter(
-    (w) =>
-      w.name.toLowerCase().includes(search.toLowerCase()) ||
-      (w.code as string).toLowerCase().includes(search.toLowerCase()) ||
-      ((w.address as string | null | undefined) ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = (warehouses as Row[])
 
   const columns: DataTableColumn<Row>[] = [
     {
@@ -167,8 +164,8 @@ export default function WarehouseListPage() {
       key: 'status',
       header: 'Trạng thái',
       render: (row) => (
-        <Badge color={(row.status as number) === 1 ? 'green' : 'gray'} variant="light">
-          {(row.status as number) === 1 ? 'Hoạt động' : 'Ngừng'}
+        <Badge color={(row.status as string) === 'Active' ? 'green' : 'gray'} variant="light">
+          {(row.status as string) === 'Active' ? 'Hoạt động' : 'Ngừng'}
         </Badge>
       ),
     },
@@ -218,7 +215,7 @@ export default function WarehouseListPage() {
         placeholder="Tìm theo tên, mã kho..."
         leftSection={<IconSearch size={16} />}
         value={search}
-        onChange={(e) => setSearch(e.currentTarget.value)}
+        onChange={(e) => { setSearch(e.currentTarget.value); setPage(1) }}
         w={300}
       />
 
@@ -226,6 +223,10 @@ export default function WarehouseListPage() {
         data={filtered}
         columns={columns}
         isLoading={isLoading}
+        total={pagedWarehouses?.totalCount}
+        page={page}
+        pageSize={20}
+        onPageChange={setPage}
         rowKey="id"
       />
 
@@ -265,8 +266,8 @@ export default function WarehouseListPage() {
         {editing && (
           <Switch
             label="Hoạt động"
-            checked={form.values.status === 1}
-            onChange={(e) => form.setFieldValue('status', e.currentTarget.checked ? 1 : 0)}
+            checked={form.values.status === 'Active'}
+            onChange={(e) => form.setFieldValue('status', e.currentTarget.checked ? 'Active' : 'Inactive')}
           />
         )}
       </DrawerForm>

@@ -3,7 +3,8 @@ import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { PageHeader } from '@pos/ui'
-import { inventoryApi, warehousesApi, productsApi } from '@pos/api-client'
+import { inventoryApi, warehousesApi } from '@pos/api-client'
+import { ProductSelectCell } from '../../../components/ProductSelectCell'
 
 interface FormValues {
   warehouseId: string
@@ -26,12 +27,7 @@ export default function InventoryAdjustPage() {
 
   const { data: warehouses } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => warehousesApi.list().then((r) => r.items),
-  })
-
-  const { data: products } = useQuery({
-    queryKey: ['products', { page: 1, pageSize: 200 }],
-    queryFn: () => productsApi.list({ page: 1, pageSize: 200 }),
+    queryFn: () => warehousesApi.list({ pageSize: 50 }),
   })
 
   const adjustMutation = useMutation({
@@ -50,11 +46,7 @@ export default function InventoryAdjustPage() {
     onError: () => notifications.show({ color: 'red', message: 'Thao tác thất bại' }),
   })
 
-  const warehouseOptions = (warehouses ?? []).map((w) => ({ value: w.id, label: w.name }))
-  const productOptions = (products?.items ?? []).map((p) => ({
-    value: p.id,
-    label: `${p.code} - ${p.name}`,
-  }))
+  const warehouseOptions = (warehouses?.items ?? []).map((w) => ({ value: w.id, label: w.name }))
 
   return (
     <Stack gap="lg">
@@ -70,14 +62,12 @@ export default function InventoryAdjustPage() {
               {...form.getInputProps('warehouseId')}
               required
             />
-            <Select
-              label="Sản phẩm"
-              placeholder="Chọn sản phẩm"
-              data={productOptions}
-              searchable
-              {...form.getInputProps('productId')}
-              required
+            <ProductSelectCell
+              value={form.values.productId || null}
+              onChange={(pid) => form.setFieldValue('productId', pid ?? '')}
+              placeholder="Chọn sản phẩm..."
             />
+            {form.errors.productId && <div style={{ color: 'red', fontSize: 12 }}>{form.errors.productId}</div>}
             <NumberInput
               label="Số lượng thực tế"
               description="Nhập số lượng tồn kho thực tế hiện tại"

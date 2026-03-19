@@ -17,6 +17,7 @@ X-Tenant-Id: {tenantId}
 | `status` | int | Không | `0`=Draft, `1`=Confirmed, `2`=Cancelled |
 | `fromDate` | datetime | Không | Từ ngày (UTC) |
 | `toDate` | datetime | Không | Đến ngày (UTC) |
+| `branchId` | guid | Không | Lọc theo chi nhánh (qua GoodsReceipt → PO.BranchId) |
 | `page` | int | Không | Mặc định: 1 |
 | `pageSize` | int | Không | Mặc định: 20 |
 
@@ -33,6 +34,7 @@ X-Tenant-Id: {tenantId}
         "goodsReceiptCode": "GR-20260310-001",
         "supplierId": "sup-uuid-1",
         "supplierName": "Công ty TNHH ABC",
+        "branchId": "branch-uuid-1",
         "returnDate": "2026-03-10T15:00:00Z",
         "reason": "Hàng không đúng quy cách",
         "status": 0,

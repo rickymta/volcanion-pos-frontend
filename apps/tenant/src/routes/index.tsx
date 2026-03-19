@@ -25,6 +25,7 @@ const SalesOrderFormPage = lazy(() => import('@/features/sales/pages/SalesOrderF
 const InvoiceListPage = lazy(() => import('@/features/sales/pages/InvoiceListPage'))
 const InvoiceDetailPage = lazy(() => import('@/features/sales/pages/InvoiceDetailPage'))
 const SalesReturnListPage = lazy(() => import('@/features/sales/pages/SalesReturnListPage'))
+const SalesReturnDetailPage = lazy(() => import('@/features/sales/pages/SalesReturnDetailPage'))
 const SalesReturnFormPage = lazy(() => import('@/features/sales/pages/SalesReturnFormPage'))
 
 // Purchase
@@ -35,6 +36,7 @@ const GoodsReceiptListPage = lazy(() => import('@/features/purchase/pages/GoodsR
 const GoodsReceiptDetailPage = lazy(() => import('@/features/purchase/pages/GoodsReceiptDetailPage'))
 const GoodsReceiptFormPage = lazy(() => import('@/features/purchase/pages/GoodsReceiptFormPage'))
 const PurchaseReturnListPage = lazy(() => import('@/features/purchase/pages/PurchaseReturnListPage'))
+const PurchaseReturnDetailPage = lazy(() => import('@/features/purchase/pages/PurchaseReturnDetailPage'))
 const PurchaseReturnFormPage = lazy(() => import('@/features/purchase/pages/PurchaseReturnFormPage'))
 
 // Inventory
@@ -42,6 +44,7 @@ const InventoryBalancePage = lazy(() => import('@/features/inventory/pages/Inven
 const InventoryTransactionsPage = lazy(() => import('@/features/inventory/pages/InventoryTransactionsPage'))
 const StockTransferListPage = lazy(() => import('@/features/inventory/pages/StockTransferListPage'))
 const StockTransferFormPage = lazy(() => import('@/features/inventory/pages/StockTransferFormPage'))
+const StockTransferDetailPage = lazy(() => import('@/features/inventory/pages/StockTransferDetailPage'))
 const InventoryAdjustPage = lazy(() => import('@/features/inventory/pages/InventoryAdjustPage'))
 const OpeningBalancePage = lazy(() => import('@/features/inventory/pages/OpeningBalancePage'))
 
@@ -129,6 +132,7 @@ export const router = createBrowserRouter([
       { path: 'sales/invoices/:id', element: <SuspenseWrap><InvoiceDetailPage /></SuspenseWrap> },
       { path: 'sales/returns', element: <SuspenseWrap><SalesReturnListPage /></SuspenseWrap> },
       { path: 'sales/returns/new', element: <SuspenseWrap><SalesReturnFormPage /></SuspenseWrap> },
+      { path: 'sales/returns/:id', element: <SuspenseWrap><SalesReturnDetailPage /></SuspenseWrap> },
       // Purchase
       { path: 'purchase/orders', element: <SuspenseWrap><PurchaseOrderListPage /></SuspenseWrap> },
       { path: 'purchase/orders/new', element: <SuspenseWrap><PurchaseOrderFormPage /></SuspenseWrap> },
@@ -139,10 +143,12 @@ export const router = createBrowserRouter([
       { path: 'purchase/receipts/:id', element: <SuspenseWrap><GoodsReceiptDetailPage /></SuspenseWrap> },
       { path: 'purchase/returns', element: <SuspenseWrap><PurchaseReturnListPage /></SuspenseWrap> },
       { path: 'purchase/returns/new', element: <SuspenseWrap><PurchaseReturnFormPage /></SuspenseWrap> },
+      { path: 'purchase/returns/:id', element: <SuspenseWrap><PurchaseReturnDetailPage /></SuspenseWrap> },
       // Inventory
       { path: 'inventory/balances', element: <SuspenseWrap><InventoryBalancePage /></SuspenseWrap> },
       { path: 'inventory/transfers', element: <SuspenseWrap><StockTransferListPage /></SuspenseWrap> },
       { path: 'inventory/transfers/new', element: <SuspenseWrap><StockTransferFormPage /></SuspenseWrap> },
+      { path: 'inventory/transfers/:id', element: <SuspenseWrap><StockTransferDetailPage /></SuspenseWrap> },
       { path: 'inventory/adjust', element: <SuspenseWrap><InventoryAdjustPage /></SuspenseWrap> },
       { path: 'inventory/transactions', element: <SuspenseWrap><InventoryTransactionsPage /></SuspenseWrap> },
       { path: 'inventory/opening-balance', element: <SuspenseWrap><OpeningBalancePage /></SuspenseWrap> },

@@ -9,6 +9,7 @@ import type { DataTableColumn } from '@pos/ui'
 import { deliveryApi } from '@pos/api-client'
 import type { DeliveryOrderDto } from '@pos/api-client'
 import { DeliveryStatusLabel, formatDate } from '@pos/utils'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 type Row = DeliveryOrderDto & Record<string, unknown>
 
@@ -28,10 +29,13 @@ export default function DeliveryListPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
+  const { activeBranchId } = useBranchStore()
+
   const params = {
     page,
     pageSize: PAGE_SIZE,
     status: status as 'Pending' | 'InProgress' | 'Completed' | 'Failed' | 'Cancelled' | undefined,
+    branchId: activeBranchId ?? undefined,
   }
 
   const { data, isLoading } = useQuery({

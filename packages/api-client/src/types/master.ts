@@ -5,11 +5,13 @@ export interface UnitDto {
   name: string
   symbol: string
   isBaseUnit: boolean
+  status: 'Active' | 'Inactive'
 }
 
 export interface UnitListParams {
   keyword?: string
   isBaseUnit?: boolean
+  status?: 'Active' | 'Inactive'
   page?: number
   pageSize?: number
 }
@@ -20,7 +22,12 @@ export interface CreateUnitRequest {
   isBaseUnit: boolean
 }
 
-export type UpdateUnitRequest = CreateUnitRequest
+export interface UpdateUnitRequest {
+  name: string
+  symbol: string
+  isBaseUnit: boolean
+  status?: 'Active' | 'Inactive'
+}
 
 export interface CategoryDto {
   id: string
@@ -28,6 +35,7 @@ export interface CategoryDto {
   name: string
   description?: string | null
   parentCategoryId?: string | null
+  status: 'Active' | 'Inactive'
   children: CategoryDto[]
 }
 
@@ -38,17 +46,32 @@ export interface CreateCategoryRequest {
   parentCategoryId?: string | null
 }
 
-export type UpdateCategoryRequest = CreateCategoryRequest
+export interface UpdateCategoryRequest {
+  code: string
+  name: string
+  description?: string | null
+  parentCategoryId?: string | null
+  status?: 'Active' | 'Inactive'
+}
+
+export interface WarehouseStockItem {
+  productId: string
+  productCode: string
+  productName: string
+  quantityOnHand: number
+  quantityReserved: number
+  quantityAvailable: number
+}
 
 export interface WarehouseDto {
   id: string
   code: string
   name: string
   address?: string | null
-  /** 1 = Active, 0 = Inactive */
-  status: number
+  status: 'Active' | 'Inactive'
   branchId?: string | null
   branchName?: string | null
+  stockItems?: WarehouseStockItem[]
 }
 
 export interface CreateWarehouseRequest {
@@ -61,15 +84,13 @@ export interface CreateWarehouseRequest {
 export interface UpdateWarehouseRequest {
   name: string
   address?: string | null
-  /** 1 = Active, 0 = Inactive */
-  status: number
+  status: 'Active' | 'Inactive'
   branchId?: string | null
 }
 
 export interface WarehouseListParams {
   keyword?: string
-  /** 1 = Active, 0 = Inactive */
-  status?: number
+  status?: 'Active' | 'Inactive'
   branchId?: string
   page?: number
   pageSize?: number
@@ -130,12 +151,12 @@ export interface ProductDto {
   purchaseUnitName?: string
   salesUnitId?: string
   salesUnitName?: string
-  /** Backend field name is 'costPrice' */
   costPrice: number
-  /** Backend field name is 'sellingPrice' */
-  sellingPrice: number
+  salePrice: number
   vatRate: number
   barcode?: string
+  isBatchManaged: boolean
+  isExpiryManaged: boolean
   /** 0 = Fifo, 1 = Average */
   costingMethod?: number
   status: 'Active' | 'Inactive'
@@ -158,7 +179,7 @@ export interface UnitConversionDto {
 export interface ProductListParams {
   page?: number
   pageSize?: number
-  search?: string
+  keyword?: string
   categoryId?: string
   status?: 'Active' | 'Inactive'
   warehouseId?: string
@@ -173,14 +194,31 @@ export interface CreateProductRequest {
   purchaseUnitId?: string
   salesUnitId?: string
   costPrice: number
-  sellingPrice: number
+  salePrice: number
   vatRate: number
   barcode?: string
+  isBatchManaged?: boolean
+  isExpiryManaged?: boolean
   /** 0 = Fifo, 1 = Average */
   costingMethod?: number
 }
 
-export type UpdateProductRequest = Partial<CreateProductRequest>
+export interface UpdateProductRequest {
+  name?: string
+  description?: string
+  categoryId?: string
+  purchaseUnitId?: string
+  salesUnitId?: string
+  costPrice?: number
+  salePrice?: number
+  vatRate?: number
+  barcode?: string
+  isBatchManaged?: boolean
+  isExpiryManaged?: boolean
+  /** 0 = Fifo, 1 = Average */
+  costingMethod?: number
+  status?: 'Active' | 'Inactive'
+}
 
 // ─── Customer ─────────────────────────────────────────────────────────────────
 

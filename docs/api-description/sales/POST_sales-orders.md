@@ -22,6 +22,7 @@ Content-Type: application/json
   "customerId": "cust-uuid-1",
   "orderDate": "2026-03-10T09:00:00Z",
   "note": "Giao trước 5pm",
+  "branchId": "branch-uuid-1",
   "lines": [
     {
       "productId": "prod-uuid-1",
@@ -50,6 +51,7 @@ Content-Type: application/json
 | `lines[].unitPrice` | ≥ 0 |
 | `lines[].discountAmount` | ≥ 0 |
 | `lines[].vatRate` | 0 – 100 |
+| `branchId` | Không bắt buộc, GUID chi nhánh phát sinh. Backend validate quyền truy cập |
 
 ## Logic
 

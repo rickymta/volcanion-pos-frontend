@@ -28,8 +28,10 @@ export interface DeliveryOrderDto {
 }
 
 export interface DeliveryOrderListParams extends PaginationParams, DateRangeParams {
+  salesOrderId?: string
   customerId?: string
   status?: DeliveryStatus
+  branchId?: string
 }
 
 export interface StartDeliveryRequest {

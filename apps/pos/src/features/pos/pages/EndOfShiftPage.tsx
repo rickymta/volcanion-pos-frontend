@@ -50,12 +50,12 @@ export default function EndOfShiftPage() {
   }
   const { data: ordersData, isLoading: loadingOrders } = useQuery({
     queryKey: ['pos-shift-orders', TODAY],
-    queryFn: () => salesOrdersApi.list({ fromDate: TODAY, toDate: TODAY, pageSize: 500 }),
+    queryFn: () => salesOrdersApi.list({ fromDate: TODAY, toDate: TODAY, pageSize: 100 }),
   })
 
   const { data: paymentsData, isLoading: loadingPayments } = useQuery({
     queryKey: ['pos-shift-payments', TODAY],
-    queryFn: () => paymentsApi.list({ fromDate: TODAY, toDate: TODAY, pageSize: 500, paymentType: 'Receive' }),
+    queryFn: () => paymentsApi.list({ fromDate: TODAY, toDate: TODAY, pageSize: 100, paymentType: 'Receive' }),
   })
 
   const orders = ordersData?.items ?? []

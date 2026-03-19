@@ -23,6 +23,7 @@ export interface SalesOrderDto {
   orderDate: string
   customerId: string
   customerName: string
+  branchId?: string
   status: DocumentStatus
   /** Backend field name is 'totalAmount' */
   totalAmount: number
@@ -39,6 +40,7 @@ export interface SalesOrderListParams extends PaginationParams, DateRangeParams 
   search?: string
   customerId?: string
   status?: DocumentStatus
+  branchId?: string
 }
 
 export interface CreateSalesOrderLineRequest {
@@ -55,6 +57,7 @@ export interface CreateSalesOrderRequest {
   customerId: string
   orderDate: string
   note?: string
+  branchId?: string
   lines: CreateSalesOrderLineRequest[]
 }
 
@@ -106,6 +109,7 @@ export interface InvoiceDto {
 export interface InvoiceListParams extends PaginationParams, DateRangeParams {
   customerId?: string
   status?: DocumentStatus
+  branchId?: string
 }
 
 // ─── Sales Return ─────────────────────────────────────────────────────────────
@@ -131,6 +135,7 @@ export interface SalesReturnDto {
   invoiceCode: string
   customerId: string
   customerName: string
+  branchId?: string
   status: DocumentStatus
   /** Backend field name is 'totalRefundAmount' */
   totalRefundAmount: number
@@ -143,13 +148,16 @@ export interface SalesReturnListParams extends PaginationParams, DateRangeParams
   customerId?: string
   invoiceId?: string
   status?: DocumentStatus
+  branchId?: string
 }
 
 export interface CreateSalesReturnRequest {
   invoiceId: string
+  customerId?: string
   returnDate: string
   reason?: string
   isRefunded: boolean
+  branchId?: string
   lines: Array<{
     productId: string
     unitId: string

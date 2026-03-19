@@ -1,0 +1,752 @@
+{
+  "info": {
+    "_postman_id": "products-module-collection-v1",
+    "name": "POS — Quản lý Sản phẩm & Danh mục",
+    "description": "Bộ request đầy đủ cho module Sản phẩm:\n- Danh mục sản phẩm (Categories) — cây phân cấp nhiều tầng\n- Sản phẩm (Products) — CRUD + tìm kiếm, lọc\n\n## Hướng dẫn sử dụng\n1. Cập nhật biến `baseUrl` và `tenantId`.\n2. Chạy **Login** để lấy token.\n3. Chạy theo thứ tự: Categories → Products.\n\n## Biến collection\n| Biến | Mô tả |\n|------|-------|\n| `baseUrl` | URL gốc, VD: `http://localhost:5000` |\n| `tenantId` | ID tenant đang test |\n| `accessToken` | JWT — tự động gán sau Login |\n| `rootCategoryId` | ID danh mục gốc — tự động gán |\n| `childCategoryId` | ID danh mục con — tự động gán |\n| `productId` | ID sản phẩm vừa tạo — tự động gán |\n| `baseUnitId` | ID đơn vị cơ bản (Lon/Cái) |\n| `purchaseUnitId` | ID đơn vị mua (Thùng/Hộp) |\n| `salesUnitId` | ID đơn vị bán (Lon/Cái) |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",         "value": "http://localhost:5000", "type": "string" },
+    { "key": "tenantId",        "value": "YOUR_TENANT_ID",        "type": "string" },
+    { "key": "accessToken",     "value": "",                      "type": "string" },
+    { "key": "rootCategoryId",  "value": "",                      "type": "string" },
+    { "key": "childCategoryId", "value": "",                      "type": "string" },
+    { "key": "productId",       "value": "",                      "type": "string" },
+    { "key": "baseUnitId",      "value": "YOUR_BASE_UNIT_ID",     "type": "string" },
+    { "key": "purchaseUnitId",  "value": "YOUR_PURCHASE_UNIT_ID", "type": "string" },
+    { "key": "salesUnitId",     "value": "YOUR_SALES_UNIT_ID",    "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "    console.log('✅ Token saved');",
+                  "} else {",
+                  "    console.error('❌ Login failed', JSON.stringify(res));",
+                  "}",
+                  "pm.test('Login success', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🗂️ Danh mục sản phẩm (Categories)",
+      "description": "CRUD cây danh mục. Route: /api/v1/categories",
+      "item": [
+        {
+          "name": "Lấy toàn bộ cây danh mục",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is array', () => pm.expect(res.data).to.be.an('array'));",
+                  "if (res.data.length > 0) {",
+                  "    pm.test('Item has children field', () => pm.expect(res.data[0]).to.have.property('children'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/categories", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories"] },
+            "description": "Trả về cây danh mục đầy đủ (recursive nested). Lấy từ cache Redis (TTL 10 phút)."
+          }
+        },
+        {
+          "name": "Tạo danh mục gốc (Root)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('parentCategoryId is null', () => pm.expect(res.data.parentCategoryId).to.be.null);",
+                  "pm.collectionVariables.set('rootCategoryId', res.data.id);",
+                  "console.log('rootCategoryId saved:', res.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"DRINK\",\n  \"name\": \"Đồ uống\",\n  \"description\": \"Các loại nước uống\",\n  \"parentCategoryId\": null\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/categories", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories"] },
+            "description": "Tạo danh mục cấp 1. `parentCategoryId` = null. Yêu cầu Manager hoặc Admin."
+          }
+        },
+        {
+          "name": "Tạo danh mục con (Child)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('parentCategoryId set', () => pm.expect(res.data.parentCategoryId).to.equal(pm.collectionVariables.get('rootCategoryId')));",
+                  "pm.collectionVariables.set('childCategoryId', res.data.id);",
+                  "console.log('childCategoryId saved:', res.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"DRINK-BEER\",\n  \"name\": \"Bia\",\n  \"description\": \"Bia các loại\",\n  \"parentCategoryId\": \"{{rootCategoryId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/categories", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories"] },
+            "description": "Tạo danh mục con cấp 2 thuộc rootCategoryId."
+          }
+        },
+        {
+          "name": "Lấy chi tiết danh mục",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('ID matches', () => pm.expect(res.data.id).to.equal(pm.collectionVariables.get('childCategoryId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/categories/{{childCategoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories", "{{childCategoryId}}"] }
+          }
+        },
+        {
+          "name": "Cập nhật danh mục",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Name updated', () => pm.expect(res.data.name).to.equal('Bia (đã cập nhật)'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"DRINK-BEER\",\n  \"name\": \"Bia (đã cập nhật)\",\n  \"description\": \"Đã cập nhật mô tả\",\n  \"parentCategoryId\": \"{{rootCategoryId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/categories/{{childCategoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories", "{{childCategoryId}}"] },
+            "description": "Cập nhật danh mục. Yêu cầu Manager hoặc Admin."
+          }
+        },
+        {
+          "name": "Xóa danh mục (không có con, không có sản phẩm)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/categories/{{childCategoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories", "{{childCategoryId}}"] },
+            "description": "Xóa mềm danh mục. Yêu cầu Admin.\n⚠️ Chỉ thành công nếu danh mục không còn con và không còn sản phẩm."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 Sản phẩm (Products)",
+      "description": "CRUD sản phẩm. Route: /api/v1/products",
+      "item": [
+        {
+          "name": "Danh sách sản phẩm (tất cả)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has items', () => pm.expect(res.data.items).to.be.an('array'));",
+                  "pm.test('Has total', () => pm.expect(res.data.total).to.be.a('number'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "page",     "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tìm kiếm theo keyword",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?keyword=heineken&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "keyword",  "value": "heineken" },
+                { "key": "page",     "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "Tìm theo tên hoặc mã sản phẩm (case-insensitive)."
+          }
+        },
+        {
+          "name": "Lọc theo danh mục",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "res.data.items.forEach(p => {",
+                  "    pm.test(`Product ${p.code} has correct category`, () => {",
+                  "        pm.expect(p.categoryId).to.equal(pm.collectionVariables.get('childCategoryId'));",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?categoryId={{childCategoryId}}&page=1&pageSize=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "categoryId", "value": "{{childCategoryId}}" },
+                { "key": "page",       "value": "1" },
+                { "key": "pageSize",   "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lọc theo trạng thái (Inactive)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?status=Inactive&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "status",   "value": "Inactive" },
+                { "key": "page",     "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "Chỉ lấy sản phẩm đã ngừng kinh doanh."
+          }
+        },
+        {
+          "name": "Tạo sản phẩm — FIFO + expiry managed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Code matches', () => pm.expect(res.data.code).to.equal('BEER-HNK-330'));",
+                  "pm.test('CostingMethod Fifo', () => pm.expect(res.data.costingMethod).to.equal('Fifo'));",
+                  "pm.test('Status Active', () => pm.expect(res.data.status).to.equal('Active'));",
+                  "pm.collectionVariables.set('productId', res.data.id);",
+                  "console.log('productId saved:', res.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"BEER-HNK-330\",\n  \"name\": \"Bia Heineken 330ml\",\n  \"description\": \"Bia lon 330ml Heineken\",\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"baseUnitId\": \"{{baseUnitId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"salesUnitId\": \"{{salesUnitId}}\",\n  \"costPrice\": 12000,\n  \"salePrice\": 15000,\n  \"vatRate\": 10,\n  \"isBatchManaged\": true,\n  \"isExpiryManaged\": true,\n  \"costingMethod\": \"Fifo\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] },
+            "description": "Tạo sản phẩm mới với costingMethod là string 'Fifo'.\nYêu cầu Manager hoặc Admin."
+          }
+        },
+        {
+          "name": "Tạo sản phẩm — WAC (Average, số nguyên)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('CostingMethod Average', () => pm.expect(res.data.costingMethod).to.equal('Average'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"WATER-DSN-500\",\n  \"name\": \"Nước Dasani 500ml\",\n  \"description\": null,\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"baseUnitId\": \"{{baseUnitId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"salesUnitId\": \"{{salesUnitId}}\",\n  \"costPrice\": 5000,\n  \"salePrice\": 7000,\n  \"vatRate\": 10,\n  \"isBatchManaged\": false,\n  \"isExpiryManaged\": false,\n  \"costingMethod\": 1\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] },
+            "description": "Tạo sản phẩm với `costingMethod` dạng số nguyên (1 = Average).\nKiểm tra API chấp nhận cả string và integer."
+          }
+        },
+        {
+          "name": "Lấy chi tiết sản phẩm",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has unit names', () => {",
+                  "    pm.expect(res.data.baseUnitName).to.be.a('string').and.not.be.empty;",
+                  "    pm.expect(res.data.categoryName).to.be.a('string').and.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products", "{{productId}}"] },
+            "description": "Lấy chi tiết sản phẩm. Response bao gồm tên danh mục và tên đơn vị."
+          }
+        },
+        {
+          "name": "Cập nhật sản phẩm — đổi giá + trạng thái",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('SalePrice updated', () => pm.expect(res.data.salePrice).to.equal(16000));",
+                  "pm.test('Status still Active', () => pm.expect(res.data.status).to.equal('Active'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bia Heineken 330ml (cập nhật)\",\n  \"description\": \"Mô tả đã cập nhật\",\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"salesUnitId\": \"{{salesUnitId}}\",\n  \"costPrice\": 12000,\n  \"salePrice\": 16000,\n  \"vatRate\": 10,\n  \"isBatchManaged\": true,\n  \"isExpiryManaged\": true,\n  \"costingMethod\": \"Fifo\",\n  \"status\": \"Active\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products", "{{productId}}"] },
+            "description": "Cập nhật sản phẩm. Yêu cầu Manager hoặc Admin.\nLưu ý: `code` (SKU) không có trong body — không thể thay đổi."
+          }
+        },
+        {
+          "name": "Ngừng kinh doanh sản phẩm (set Inactive)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Status is Inactive', () => pm.expect(res.data.status).to.equal('Inactive'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bia Heineken 330ml (cập nhật)\",\n  \"description\": \"Mô tả đã cập nhật\",\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"salesUnitId\": \"{{salesUnitId}}\",\n  \"costPrice\": 12000,\n  \"salePrice\": 16000,\n  \"vatRate\": 10,\n  \"isBatchManaged\": true,\n  \"isExpiryManaged\": true,\n  \"costingMethod\": \"Fifo\",\n  \"status\": \"Inactive\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products", "{{productId}}"] },
+            "description": "Đổi status thành Inactive — sản phẩm không còn khả dụng trong POS."
+          }
+        },
+        {
+          "name": "Xóa sản phẩm (tồn kho = 0)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products", "{{productId}}"] },
+            "description": "Xóa mềm sản phẩm. Yêu cầu Admin.\n⚠️ Sẽ trả về 400 nếu sản phẩm còn tồn kho > 0 ở bất kỳ kho nào."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧪 Test cases — Business Rules",
+      "description": "Kiểm tra các rule bảo vệ dữ liệu.",
+      "item": [
+        {
+          "name": "[400] Tạo sản phẩm — SKU đã tồn tại",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[400] Duplicate code rejected', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error mentions already exists', () => {",
+                  "    pm.expect(JSON.stringify(res)).to.include('already exists');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"BEER-HNK-330\",\n  \"name\": \"Sản phẩm trùng mã\",\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"baseUnitId\": \"{{baseUnitId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"salesUnitId\": \"{{salesUnitId}}\",\n  \"costPrice\": 1000,\n  \"salePrice\": 2000,\n  \"vatRate\": 0\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] },
+            "description": "Tạo với mã BEER-HNK-330 đã tồn tại → 400."
+          }
+        },
+        {
+          "name": "[400] Tạo sản phẩm — salePrice âm",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[400] Negative salePrice rejected', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"TEST-NEG\",\n  \"name\": \"Test âm\",\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"baseUnitId\": \"{{baseUnitId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"salesUnitId\": \"{{salesUnitId}}\",\n  \"costPrice\": 0,\n  \"salePrice\": -100,\n  \"vatRate\": 0\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+          }
+        },
+        {
+          "name": "[400] Tạo sản phẩm — vatRate = 150 (ngoài 0-100)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[400] Invalid vatRate rejected', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"TEST-VAT\",\n  \"name\": \"Test VAT\",\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"baseUnitId\": \"{{baseUnitId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"salesUnitId\": \"{{salesUnitId}}\",\n  \"costPrice\": 0,\n  \"salePrice\": 1000,\n  \"vatRate\": 150\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+          }
+        },
+        {
+          "name": "[400] Tạo sản phẩm — thiếu salesUnitId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[400] Missing salesUnitId rejected', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"TEST-NOUNIT\",\n  \"name\": \"Test thiếu unit\",\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"baseUnitId\": \"{{baseUnitId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"costPrice\": 0,\n  \"salePrice\": 1000,\n  \"vatRate\": 0\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+          }
+        },
+        {
+          "name": "[400] Xóa sản phẩm còn tồn kho",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[400] Delete in-stock product rejected', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error mentions stock on hand', () => {",
+                  "    pm.expect(JSON.stringify(res)).to.include('stock on hand');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products", "{{productId}}"] },
+            "description": "⚠️ Chỉ có tác dụng nếu sản phẩm đã có stock > 0 (đã nhập kho)."
+          }
+        },
+        {
+          "name": "[400] Tạo danh mục — code trùng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[400] Duplicate category code rejected', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error mentions already exists', () => {",
+                  "    pm.expect(JSON.stringify(res)).to.include('already exists');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"DRINK\",\n  \"name\": \"Trùng mã\",\n  \"description\": null,\n  \"parentCategoryId\": null\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/categories", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories"] },
+            "description": "Code DRINK đã tồn tại → 400."
+          }
+        },
+        {
+          "name": "[400] Xóa danh mục có sản phẩm",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[400] Delete category with products rejected', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error mentions products', () => {",
+                  "    pm.expect(JSON.stringify(res)).to.satisfy(s => s.includes('products') || s.includes('Cannot delete'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/categories/{{childCategoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories", "{{childCategoryId}}"] },
+            "description": "⚠️ Chỉ có tác dụng nếu childCategoryId có sản phẩm đang active."
+          }
+        },
+        {
+          "name": "[400] Xóa danh mục có danh mục con",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[400] Delete category with children rejected', () => pm.response.to.have.status(400));",
+                  "const res = pm.response.json();",
+                  "pm.test('Error mentions sub-categories', () => {",
+                  "    pm.expect(JSON.stringify(res)).to.satisfy(s => s.includes('sub-categor') || s.includes('Cannot delete'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/categories/{{rootCategoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "categories", "{{rootCategoryId}}"] },
+            "description": "rootCategoryId còn chứa childCategoryId → 400."
+          }
+        },
+        {
+          "name": "[404] Sản phẩm không tồn tại",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[404] Not found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Tenant-ID", "value": "{{tenantId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/products/00000000-0000-0000-0000-000000000000", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products", "00000000-0000-0000-0000-000000000000"] }
+          }
+        },
+        {
+          "name": "[403] Staff cố tạo sản phẩm",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[403] Staff cannot create product', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{staffToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Tenant-ID",  "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"TEST-403\",\n  \"name\": \"Test 403\",\n  \"categoryId\": \"{{childCategoryId}}\",\n  \"baseUnitId\": \"{{baseUnitId}}\",\n  \"purchaseUnitId\": \"{{purchaseUnitId}}\",\n  \"salesUnitId\": \"{{salesUnitId}}\",\n  \"costPrice\": 0,\n  \"salePrice\": 1000,\n  \"vatRate\": 0\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] },
+            "description": "Dùng staffToken (role Staff) → 403 Forbidden."
+          }
+        }
+      ]
+    }
+  ]
+}

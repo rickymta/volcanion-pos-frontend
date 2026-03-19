@@ -2,14 +2,15 @@
   Grid, Stack, TextInput, ScrollArea, Card, Text, Group, Button, NumberInput,
   Divider, Title, ActionIcon, Select, Modal, Radio, Badge, ThemeIcon,
 } from '@mantine/core'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useDebouncedValue } from '@mantine/hooks'
 import { IconSearch, IconTrash, IconShoppingCart, IconCheck, IconPrinter } from '@tabler/icons-react'
 import { productsApi, customersApi, salesOrdersApi, paymentsApi, categoriesApi, warehousesApi } from '@pos/api-client'
 import type { PaymentMethod } from '@pos/api-client'
-import { formatVND } from '@pos/utils'
 import { notifications } from '@mantine/notifications'
 import { useCartStore, lineNet, lineVat, lineTotal } from '@/stores/cartStore'
+import { formatVND } from '@pos/utils'
 import { useTranslation } from 'react-i18next'
 
 export default function PosTerminalPage() {
@@ -31,7 +32,7 @@ export default function PosTerminalPage() {
 
   const { data: products } = useQuery({
     queryKey: ['pos-products', search, categoryId],
-    queryFn: () => productsApi.list({ search: search || undefined, categoryId: categoryId ?? undefined, pageSize: 40 }),
+    queryFn: () => productsApi.list({ keyword: search || undefined, categoryId: categoryId ?? undefined, pageSize: 40 }),
   })
 
   const { data: categories } = useQuery({
@@ -39,15 +40,30 @@ export default function PosTerminalPage() {
     queryFn: () => categoriesApi.list(),
   })
 
-  const { data: warehouses } = useQuery({
+  const { data: warehousesData } = useQuery({
     queryKey: ['pos-warehouses'],
-    queryFn: () => warehousesApi.list({ pageSize: 999 }).then((r) => r.items),
+    queryFn: () => warehousesApi.list({ pageSize: 50 }),
   })
 
-  const { data: customers } = useQuery({
-    queryKey: ['pos-customers'],
-    queryFn: () => customersApi.list({ pageSize: 200 }),
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [debouncedCustomerSearch] = useDebouncedValue(customerSearch, 300)
+  const { data: customersData } = useQuery({
+    queryKey: ['customers', debouncedCustomerSearch],
+    queryFn: () => customersApi.list({ search: debouncedCustomerSearch || undefined, pageSize: 20 }),
   })
+  const { data: selectedCustomer } = useQuery({
+    queryKey: ['customer', customerId],
+    queryFn: () => customersApi.getById(customerId!),
+    enabled: !!customerId,
+    staleTime: Infinity,
+  })
+  const customerOptions = useMemo(() => {
+    const list = (customersData?.items ?? []).map((c) => ({ value: c.id, label: c.name }))
+    if (customerId && selectedCustomer && !list.find((o) => o.value === customerId)) {
+      list.unshift({ value: selectedCustomer.id, label: selectedCustomer.name })
+    }
+    return list
+  }, [customersData, customerId, selectedCustomer])
 
   const createOrder = useMutation({
     mutationFn: async () => {
@@ -106,9 +122,13 @@ export default function PosTerminalPage() {
               placeholder={t('customer_placeholder')}
               searchable
               clearable
-              data={(customers?.items ?? []).map((c) => ({ value: c.id, label: c.name }))}
+              data={customerOptions}
               value={customerId}
-              onChange={setCustomerId}
+              onChange={(v) => { setCustomerId(v); setCustomerSearch('') }}
+              searchValue={customerSearch}
+              onSearchChange={setCustomerSearch}
+              filter={({ options }) => options}
+              nothingFoundMessage="Không tìm thấy"
               size="md"
             />
             <TextInput
@@ -153,7 +173,7 @@ export default function PosTerminalPage() {
                     >
                       <Text size="sm" fw={600} lineClamp={2}>{product.name}</Text>
                       <Text size="xs" c="dimmed">{product.code}</Text>
-                      <Text size="sm" c="green" fw={500} mt={4}>{formatVND(product.sellingPrice)}</Text>
+                      <Text size="sm" c="green" fw={500} mt={4}>{formatVND(product.salePrice)}</Text>
                     </Card>
                   </Grid.Col>
                 ))}
@@ -289,7 +309,7 @@ export default function PosTerminalPage() {
           <Select
             label={t('warehouse_label')}
             placeholder={t('warehouse_placeholder')}
-            data={(warehouses ?? []).map((w) => ({ value: w.id, label: w.name }))}
+            data={(warehousesData?.items ?? []).map((w) => ({ value: w.id, label: w.name }))}
             value={warehouseId}
             onChange={setWarehouseId}
             clearable

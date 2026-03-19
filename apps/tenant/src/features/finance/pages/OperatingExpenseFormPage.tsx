@@ -34,6 +34,7 @@ export default function OperatingExpenseFormPage() {
   const [expenseDate, setExpenseDate] = useState<Date | null>(new Date())
   const [expenseAccountCode, setExpenseAccountCode] = useState<string | null>('641')
   const [paymentAccountCode, setPaymentAccountCode] = useState<string | null>('111')
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -51,7 +52,7 @@ export default function OperatingExpenseFormPage() {
         expenseDate: expenseDate.toISOString(),
         expenseAccountCode,
         paymentAccountCode,
-      })
+      }, idempotencyKey)
     },
     onSuccess: (data) => {
       void qc.invalidateQueries({ queryKey: ['operating-expenses'] })

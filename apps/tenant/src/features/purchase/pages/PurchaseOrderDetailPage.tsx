@@ -2,9 +2,9 @@ import { Stack, Group, Button, Badge, Text, Paper, Table, Divider, Loader, Cente
 import { notifications } from '@mantine/notifications'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IconArrowLeft, IconCheck, IconX } from '@tabler/icons-react'
+import { IconArrowLeft, IconCheck, IconX, IconEdit, IconTruckDelivery } from '@tabler/icons-react'
 import { PageHeader, openConfirm } from '@pos/ui'
-import { purchaseOrdersApi } from '@pos/api-client'
+import { purchaseOrdersApi, goodsReceiptsApi } from '@pos/api-client'
 import { DocumentStatusLabel, formatVND, formatDate } from '@pos/utils'
 
 export default function PurchaseOrderDetailPage() {
@@ -35,7 +35,13 @@ export default function PurchaseOrderDetailPage() {
       void qc.invalidateQueries({ queryKey: ['purchase-orders'] })
       notifications.show({ color: 'green', message: 'Đã hủy đơn mua hàng' })
     },
-    onError: () => notifications.show({ color: 'red', message: 'Hủy thất bại' }),
+    onError: (e: Error) => notifications.show({ color: 'red', message: e.message || 'Hủy thất bại' }),
+  })
+
+  const { data: linkedReceipts } = useQuery({
+    queryKey: ['goods-receipts', { purchaseOrderId: id }],
+    queryFn: () => goodsReceiptsApi.list({ purchaseOrderId: id }),
+    enabled: !!id && !!order && order.status !== 'Draft',
   })
 
   if (isLoading) {
@@ -50,6 +56,7 @@ export default function PurchaseOrderDetailPage() {
 
   const statusInfo = DocumentStatusLabel[order.status as keyof typeof DocumentStatusLabel]
   const isDraft = order.status === 'Draft'
+  const isConfirmed = order.status === 'Confirmed'
 
   return (
     <Stack gap="lg">
@@ -67,6 +74,13 @@ export default function PurchaseOrderDetailPage() {
             </Button>
             {isDraft && (
               <>
+                <Button
+                  variant="light"
+                  leftSection={<IconEdit size={16} />}
+                  onClick={() => navigate(`/purchase/orders/${id}/edit`)}
+                >
+                  Sửa đơn
+                </Button>
                 <Button
                   color="blue"
                   leftSection={<IconCheck size={16} />}
@@ -92,6 +106,34 @@ export default function PurchaseOrderDetailPage() {
                     openConfirm({
                       title: 'Hủy đơn mua hàng',
                       message: 'Bạn có chắc muốn hủy đơn mua hàng này?',
+                      confirmLabel: 'Hủy đơn',
+                      confirmColor: 'red',
+                      onConfirm: () => cancelMutation.mutate(),
+                    })
+                  }
+                >
+                  Hủy
+                </Button>
+              </>
+            )}
+            {isConfirmed && (
+              <>
+                <Button
+                  color="teal"
+                  leftSection={<IconTruckDelivery size={16} />}
+                  onClick={() => navigate(`/purchase/receipts/new?poId=${id}`)}
+                >
+                  Tạo phiếu nhập kho
+                </Button>
+                <Button
+                  color="red"
+                  variant="light"
+                  leftSection={<IconX size={16} />}
+                  loading={cancelMutation.isPending}
+                  onClick={() =>
+                    openConfirm({
+                      title: 'Hủy đơn mua hàng',
+                      message: 'Bạn có chắc muốn hủy đơn này? Lưu ý: không thể hủy nếu đã có phiếu nhập được xác nhận.',
                       confirmLabel: 'Hủy đơn',
                       confirmColor: 'red',
                       onConfirm: () => cancelMutation.mutate(),
@@ -169,6 +211,12 @@ export default function PurchaseOrderDetailPage() {
               <Text size="sm" c="dimmed">Tạm tính</Text>
               <Text size="sm">{formatVND(order.totalAmount)}</Text>
             </Group>
+            {order.discountAmount > 0 && (
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Chiết khấu</Text>
+                <Text size="sm" c="red">-{formatVND(order.discountAmount)}</Text>
+              </Group>
+            )}
             <Group justify="space-between">
               <Text size="sm" c="dimmed">Thuế VAT</Text>
               <Text size="sm">{formatVND(order.vatAmount)}</Text>
@@ -181,6 +229,45 @@ export default function PurchaseOrderDetailPage() {
           </Stack>
         </Paper>
       </Group>
+
+      {(linkedReceipts?.items.length ?? 0) > 0 && (
+        <Paper withBorder>
+          <Text fw={600} p="md" pb={0}>Phiếu nhập kho liên kết</Text>
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Mã phiếu</Table.Th>
+                <Table.Th>Ngày nhập</Table.Th>
+                <Table.Th>Kho nhập</Table.Th>
+                <Table.Th>Trạng thái</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {linkedReceipts!.items.map((gr) => {
+                const grStatus = DocumentStatusLabel[gr.status as keyof typeof DocumentStatusLabel]
+                return (
+                  <Table.Tr
+                    key={gr.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/purchase/receipts/${gr.id}`)}
+                  >
+                    <Table.Td fw={500}>{gr.code}</Table.Td>
+                    <Table.Td>{formatDate(gr.receiptDate)}</Table.Td>
+                    <Table.Td>{gr.warehouseName}</Table.Td>
+                    <Table.Td>
+                      {grStatus ? (
+                        <Badge color={grStatus.color} variant="light" size="sm">{grStatus.label}</Badge>
+                      ) : (
+                        <Badge variant="light" size="sm">{gr.status}</Badge>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                )
+              })}
+            </Table.Tbody>
+          </Table>
+        </Paper>
+      )}
     </Stack>
   )
 }

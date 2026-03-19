@@ -9,8 +9,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconTrash, IconDeviceFloppy, IconAlertCircle } from '@tabler/icons-react'
 import { PageHeader } from '@pos/ui'
-import { inventoryApi, warehousesApi, productsApi } from '@pos/api-client'
+import { inventoryApi, warehousesApi } from '@pos/api-client'
 import type { ProductDto } from '@pos/api-client'
+import { ProductSelectCell } from '../../../components/ProductSelectCell'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 interface LineItem {
   key: number
@@ -32,7 +34,9 @@ const makeEmptyLine = (): LineItem => ({
 export default function StockTransferFormPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { activeBranchId } = useBranchStore()
 
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
   const [fromWarehouseId, setFromWarehouseId] = useState<string | null>(null)
   const [toWarehouseId, setToWarehouseId] = useState<string | null>(null)
   const [transferDate, setTransferDate] = useState<Date | null>(new Date())
@@ -41,28 +45,18 @@ export default function StockTransferFormPage() {
 
   const { data: warehousesData } = useQuery({
     queryKey: ['warehouses-all'],
-    queryFn: () => warehousesApi.list(),
+    queryFn: () => warehousesApi.list({ pageSize: 50 }),
   })
-
-  const [productSearch, setProductSearch] = useState('')
-  const { data: productsData } = useQuery({
-    queryKey: ['products-search', productSearch],
-    queryFn: () => productsApi.list({ search: productSearch, pageSize: 50 }),
-  })
-
-  const productMap: Record<string, ProductDto> = {}
-  ;(productsData?.items ?? []).forEach((p) => { productMap[p.id] = p as ProductDto })
 
   const updateLine = <K extends keyof LineItem>(key: number, field: K, value: LineItem[K]) => {
     setLines((prev) => prev.map((l) => l.key === key ? { ...l, [field]: value } : l))
   }
 
-  const handleProductSelect = (key: number, productId: string | null) => {
+  const handleProductSelect = (key: number, productId: string | null, product: ProductDto | null) => {
     if (!productId) {
       setLines((prev) => prev.map((l) => l.key === key ? { ...l, productId: null, unitId: '', unitName: '' } : l))
       return
     }
-    const product = productMap[productId]
     setLines((prev) =>
       prev.map((l) =>
         l.key === key
@@ -90,12 +84,13 @@ export default function StockTransferFormPage() {
         toWarehouseId,
         transferDate: transferDate.toISOString().slice(0, 10),
         note: note || undefined,
+        branchId: activeBranchId ?? undefined,
         lines: validLines.map((l) => ({
           productId: l.productId!,
           unitId: l.unitId,
           quantity: l.quantity,
         })),
-      })
+      }, idempotencyKey)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['stock-transfers'] })
@@ -105,8 +100,7 @@ export default function StockTransferFormPage() {
     onError: (e: Error) => notifications.show({ color: 'red', message: e.message }),
   })
 
-  const warehouseOptions = (warehousesData ?? []).map((w) => ({ value: w.id, label: w.name }))
-  const productOptions = (productsData?.items ?? []).map((p) => ({ value: p.id, label: `${p.name} (${p.code})` }))
+  const warehouseOptions = (warehousesData?.items ?? []).map((w) => ({ value: w.id, label: w.name }))
 
   return (
     <Stack gap="lg">
@@ -196,14 +190,9 @@ export default function StockTransferFormPage() {
               {lines.map((line) => (
                 <Table.Tr key={line.key}>
                   <Table.Td>
-                    <Select
-                      placeholder="Chọn sản phẩm..."
-                      searchable
-                      data={productOptions}
+                    <ProductSelectCell
                       value={line.productId}
-                      onChange={(v) => handleProductSelect(line.key, v)}
-                      onSearchChange={setProductSearch}
-                      size="xs"
+                      onChange={(pid, product) => handleProductSelect(line.key, pid, product)}
                     />
                   </Table.Td>
                   <Table.Td>

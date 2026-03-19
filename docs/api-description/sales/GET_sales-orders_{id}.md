@@ -23,6 +23,7 @@ X-Tenant-Id: {tenantId}
     "code": "SO-20260310-001",
     "customerId": "cust-uuid-1",
     "customerName": "Nguyễn Văn A",
+    "branchId": "branch-uuid-1",
     "orderDate": "2026-03-10T09:00:00Z",
     "status": 0,
     "note": null,

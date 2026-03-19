@@ -16,6 +16,7 @@ X-Tenant-Id: {tenantId}
 | `status` | int | Không | `0`=Draft, `1`=Confirmed, `2`=Cancelled |
 | `fromDate` | datetime | Không | Từ ngày (UTC) |
 | `toDate` | datetime | Không | Đến ngày (UTC) |
+| `branchId` | guid | Không | Lọc theo chi nhánh (qua Invoice.BranchId) |
 | `page` | int | Không | Mặc định: 1 |
 | `pageSize` | int | Không | Mặc định: 20 |
 
@@ -32,6 +33,7 @@ X-Tenant-Id: {tenantId}
         "invoiceCode": "INV-20260310-001",
         "customerId": "cust-uuid-1",
         "customerName": "Nguyễn Văn A",
+        "branchId": "branch-uuid-1",
         "returnDate": "2026-03-10T10:00:00Z",
         "reason": "Hàng lỗi",
         "status": 0,

@@ -8,6 +8,7 @@ import type { DataTableColumn } from '@pos/ui'
 import { salesOrdersApi } from '@pos/api-client'
 import type { SalesOrderDto, SalesOrderListParams } from '@pos/api-client'
 import { DocumentStatusLabel, formatVND, formatDate } from '@pos/utils'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 type Row = SalesOrderDto & Record<string, unknown>
 
@@ -26,11 +27,14 @@ export default function SalesOrderListPage() {
   const [status, setStatus] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
+  const { activeBranchId } = useBranchStore()
+
   const params: SalesOrderListParams = {
     page,
     pageSize: PAGE_SIZE,
     search: search || undefined,
     status: status as SalesOrderListParams['status'] ?? undefined,
+    branchId: activeBranchId ?? undefined,
   }
 
   const { data, isLoading } = useQuery({

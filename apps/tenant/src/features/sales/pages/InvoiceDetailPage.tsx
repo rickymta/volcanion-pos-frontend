@@ -1,10 +1,10 @@
-import { Stack, Group, Button, Badge, Text, Paper, Divider, Loader, Center, Progress } from '@mantine/core'
+import { Stack, Group, Button, Badge, Text, Paper, Divider, Loader, Center, Progress, Table } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { IconArrowLeft, IconCurrencyDong } from '@tabler/icons-react'
+import { IconArrowLeft, IconCurrencyDong, IconArrowBack } from '@tabler/icons-react'
 import { PageHeader } from '@pos/ui'
-import { invoicesApi } from '@pos/api-client'
-import { formatVND, formatDate } from '@pos/utils'
+import { invoicesApi, salesReturnsApi } from '@pos/api-client'
+import { DocumentStatusLabel, formatVND, formatDate } from '@pos/utils'
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -13,6 +13,12 @@ export default function InvoiceDetailPage() {
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoice', id],
     queryFn: () => invoicesApi.getById(id!),
+    enabled: !!id,
+  })
+
+  const { data: linkedReturns } = useQuery({
+    queryKey: ['sales-returns', { invoiceId: id }],
+    queryFn: () => salesReturnsApi.list({ invoiceId: id!, pageSize: 50 }),
     enabled: !!id,
   })
 
@@ -53,6 +59,14 @@ export default function InvoiceDetailPage() {
                 Tạo phiếu thu
               </Button>
             )}
+            <Button
+              color="orange"
+              variant="light"
+              leftSection={<IconArrowBack size={16} />}
+              onClick={() => navigate(`/sales/returns/new?invId=${id}`)}
+            >
+              Trả hàng
+            </Button>
           </Group>
         }
       />
@@ -154,6 +168,45 @@ export default function InvoiceDetailPage() {
               </Text>
             </div>
           </Group>
+        </Paper>
+      )}
+
+      {(linkedReturns?.items.length ?? 0) > 0 && (
+        <Paper withBorder>
+          <Text fw={600} p="md" pb={0}>Phiếu trả hàng liên kết</Text>
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Mã phiếu</Table.Th>
+                <Table.Th>Ngày trả</Table.Th>
+                <Table.Th ta="right">Tiền hoàn trả</Table.Th>
+                <Table.Th>Trạng thái</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {linkedReturns!.items.map((sr) => {
+                const srStatus = DocumentStatusLabel[sr.status as keyof typeof DocumentStatusLabel]
+                return (
+                  <Table.Tr
+                    key={sr.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/sales/returns/${sr.id}`)}
+                  >
+                    <Table.Td fw={500}>{sr.code}</Table.Td>
+                    <Table.Td>{formatDate(sr.returnDate)}</Table.Td>
+                    <Table.Td ta="right">{formatVND(sr.totalRefundAmount)}</Table.Td>
+                    <Table.Td>
+                      {srStatus ? (
+                        <Badge color={srStatus.color} variant="light" size="sm">{srStatus.label}</Badge>
+                      ) : (
+                        <Badge variant="light" size="sm">{sr.status}</Badge>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                )
+              })}
+            </Table.Tbody>
+          </Table>
         </Paper>
       )}
     </Stack>

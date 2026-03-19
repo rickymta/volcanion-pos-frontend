@@ -221,7 +221,7 @@ export default function ProductFormPage() {
       purchaseUnitId: '',
       salesUnitId: '',
       costPrice: 0,
-      sellingPrice: 0,
+      salePrice: 0,
       vatRate: 0.1,
       vatRateStr: '0.1',
       costingMethodStr: '1',
@@ -230,7 +230,7 @@ export default function ProductFormPage() {
       code: (v) => (v.trim() ? null : 'Mã sản phẩm không được trống'),
       name: (v) => (v.trim() ? null : 'Tên sản phẩm không được trống'),
       baseUnitId: (v) => (v ? null : 'Đơn vị tính không được trống'),
-      sellingPrice: (v) => (v >= 0 ? null : 'Giá bán không hợp lệ'),
+      salePrice: (v) => (v >= 0 ? null : 'Giá bán không hợp lệ'),
     },
   })
 
@@ -245,10 +245,11 @@ export default function ProductFormPage() {
     queryFn: () => categoriesApi.list(),
   })
 
-  const { data: units = [] } = useQuery({
+  const { data: unitsData } = useQuery({
     queryKey: ['units'],
-    queryFn: () => unitsApi.list({ pageSize: 999 }).then((r) => r.items),
+    queryFn: () => unitsApi.list({ pageSize: 50 }),
   })
+  const units = unitsData?.items ?? []
 
   useEffect(() => {
     if (product) {
@@ -260,7 +261,7 @@ export default function ProductFormPage() {
         purchaseUnitId: product.purchaseUnitId ?? '',
         salesUnitId: product.salesUnitId ?? '',
         costPrice: product.costPrice,
-        sellingPrice: product.sellingPrice,
+        salePrice: product.salePrice,
         vatRate: product.vatRate,
         vatRateStr: String(product.vatRate),
         costingMethodStr: String(product.costingMethod ?? 1),
@@ -421,7 +422,7 @@ export default function ProductFormPage() {
                 suffix=" ₫"
                 min={0}
                 required
-                {...form.getInputProps('sellingPrice')}
+                {...form.getInputProps('salePrice')}
               />
             </Group>
             <Group grow>

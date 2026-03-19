@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Stack, Group, Button, NumberInput, Select, ActionIcon,
-  Table, Paper, Text, Textarea, Checkbox,
+  Table, Paper, Text, Textarea, Checkbox, Badge, Tooltip,
 } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconTrash, IconDeviceFloppy } from '@tabler/icons-react'
 import { PageHeader } from '@pos/ui'
-import { salesReturnsApi, invoicesApi, productsApi } from '@pos/api-client'
+import { salesReturnsApi, invoicesApi } from '@pos/api-client'
 import type { ProductDto } from '@pos/api-client'
 import { formatVND } from '@pos/utils'
+import { ProductSelectCell } from '../../../components/ProductSelectCell'
+import { useBranchStore } from '@/lib/useBranchStore'
 
 interface LineItem {
   key: number
@@ -35,38 +37,89 @@ const makeEmptyLine = (): LineItem => ({
 export default function SalesReturnFormPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { activeBranchId } = useBranchStore()
+  const [searchParams] = useSearchParams()
+  const invIdFromQuery = searchParams.get('invId')
 
-  const [invoiceId, setInvoiceId] = useState<string | null>(null)
+  const [invoiceId, setInvoiceId] = useState<string | null>(invIdFromQuery)
   const [returnDate, setReturnDate] = useState<Date | null>(new Date())
   const [reason, setReason] = useState('')
   const [isRefunded, setIsRefunded] = useState(false)
   const [lines, setLines] = useState<LineItem[]>([makeEmptyLine()])
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
-  // Load invoices (unpaid / partially paid for refund context)
+  // Load selected invoice detail to auto-fill lines
+  const { data: selectedInvoice } = useQuery({
+    queryKey: ['invoice', invoiceId],
+    queryFn: () => invoicesApi.getById(invoiceId!),
+    enabled: !!invoiceId,
+  })
+
+  useEffect(() => {
+    if (selectedInvoice) {
+      setLines(
+        selectedInvoice.lines.map((l) => ({
+          key: ++lineKey,
+          productId: l.productId,
+          unitId: l.unitId,
+          unitName: l.unitName,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+        }))
+      )
+    }
+  }, [selectedInvoice])
+
+  // Load existing confirmed SalesReturns for this invoice (for comparison columns)
+  const { data: existingSRsMeta } = useQuery({
+    queryKey: ['sales-returns-meta', { invoiceId, status: 'Confirmed' }],
+    queryFn: () => salesReturnsApi.list({ invoiceId: invoiceId!, status: 'Confirmed', pageSize: 50 }),
+    enabled: !!invoiceId,
+  })
+
+  // Load each SR detail in parallel to get lines (list API returns lines: [])
+  const existingSRDetails = useQueries({
+    queries: (existingSRsMeta?.items ?? []).map((sr) => ({
+      queryKey: ['sales-return', sr.id],
+      queryFn: () => salesReturnsApi.getById(sr.id),
+    })),
+  })
+
+  // Map: productId → sold qty from invoice
+  const invoiceLineQtyMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    ;(selectedInvoice?.lines ?? []).forEach((l) => {
+      map[l.productId] = (map[l.productId] ?? 0) + l.quantity
+    })
+    return map
+  }, [selectedInvoice])
+
+  // Map: productId → already returned qty in confirmed SRs
+  const returnedQtyMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    existingSRDetails.forEach((result) => {
+      result.data?.lines.forEach((line) => {
+        map[line.productId] = (map[line.productId] ?? 0) + line.quantity
+      })
+    })
+    return map
+  }, [existingSRDetails])
+
+  // Load invoices for dropdown (first 50 confirmed invoices; user typically navigates here from invoice detail)
   const { data: invoicesData } = useQuery({
-    queryKey: ['invoices-all'],
-    queryFn: () => invoicesApi.list({ pageSize: 500 }),
+    queryKey: ['invoices-for-return'],
+    queryFn: () => invoicesApi.list({ pageSize: 50 }),
   })
-
-  const [productSearch, setProductSearch] = useState('')
-  const { data: productsData } = useQuery({
-    queryKey: ['products-search', productSearch],
-    queryFn: () => productsApi.list({ search: productSearch, pageSize: 50 }),
-  })
-
-  const productMap: Record<string, ProductDto> = {}
-  ;(productsData?.items ?? []).forEach((p) => { productMap[p.id] = p as ProductDto })
 
   const updateLine = <K extends keyof LineItem>(key: number, field: K, value: LineItem[K]) => {
     setLines((prev) => prev.map((l) => l.key === key ? { ...l, [field]: value } : l))
   }
 
-  const handleProductSelect = (key: number, productId: string | null) => {
+  const handleProductSelect = (key: number, productId: string | null, product: ProductDto | null) => {
     if (!productId) {
       setLines((prev) => prev.map((l) => l.key === key ? { ...l, productId: null, unitId: '', unitName: '' } : l))
       return
     }
-    const product = productMap[productId]
     setLines((prev) =>
       prev.map((l) =>
         l.key === key
@@ -75,7 +128,7 @@ export default function SalesReturnFormPage() {
               productId,
               unitId: product?.baseUnitId ?? '',
               unitName: (product as any)?.baseUnit ?? '',
-              unitPrice: product?.sellingPrice ?? 0,
+              unitPrice: product?.salePrice ?? 0,
             }
           : l
       )
@@ -99,13 +152,14 @@ export default function SalesReturnFormPage() {
         returnDate: returnDate.toISOString().slice(0, 10),
         reason: reason || undefined,
         isRefunded,
+        branchId: activeBranchId ?? undefined,
         lines: validLines.map((l) => ({
           productId: l.productId!,
           unitId: l.unitId,
           quantity: l.quantity,
           unitPrice: l.unitPrice,
         })),
-      })
+      }, idempotencyKey)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['sales-returns'] })
@@ -121,7 +175,6 @@ export default function SalesReturnFormPage() {
     value: inv.id,
     label: `${inv.code} — ${inv.customerName}`,
   }))
-  const productOptions = (productsData?.items ?? []).map((p) => ({ value: p.id, label: p.name + ' (' + p.code + ')' }))
 
   return (
     <Stack gap="lg">
@@ -156,6 +209,7 @@ export default function SalesReturnFormPage() {
               data={invoiceOptions}
               value={invoiceId}
               onChange={setInvoiceId}
+              description={selectedInvoice ? `Liên kết: ${selectedInvoice.code} — ${selectedInvoice.customerName}` : undefined}
             />
             <DateInput
               label="Ngày trả hàng"
@@ -193,6 +247,13 @@ export default function SalesReturnFormPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th style={{ minWidth: 220 }}>Sản phẩm</Table.Th>
+                {selectedInvoice && (
+                  <>
+                    <Table.Th style={{ width: 80 }} ta="center">Theo HĐ</Table.Th>
+                    <Table.Th style={{ width: 80 }} ta="center">Đã trả</Table.Th>
+                    <Table.Th style={{ width: 80 }} ta="center">Còn lại</Table.Th>
+                  </>
+                )}
                 <Table.Th style={{ width: 100 }}>Số lượng</Table.Th>
                 <Table.Th style={{ width: 140 }}>Đơn giá</Table.Th>
                 <Table.Th style={{ width: 140 }}>Thành tiền</Table.Th>
@@ -203,16 +264,38 @@ export default function SalesReturnFormPage() {
               {lines.map((line) => (
                 <Table.Tr key={line.key}>
                   <Table.Td>
-                    <Select
-                      placeholder="Chọn sản phẩm..."
-                      searchable
-                      data={productOptions}
+                    <ProductSelectCell
                       value={line.productId}
-                      onChange={(v) => handleProductSelect(line.key, v)}
-                      onSearchChange={setProductSearch}
-                      size="xs"
+                      onChange={(pid, product) => handleProductSelect(line.key, pid, product)}
                     />
                   </Table.Td>
+                  {selectedInvoice && (() => {
+                    const sold = line.productId ? (invoiceLineQtyMap[line.productId] ?? 0) : 0
+                    const returned = line.productId ? (returnedQtyMap[line.productId] ?? 0) : 0
+                    const remaining = sold - returned
+                    const isOver = line.quantity > remaining && remaining > 0
+                    return (
+                      <>
+                        <Table.Td ta="center">
+                          <Text size="xs" c={sold > 0 ? undefined : 'dimmed'}>{sold > 0 ? sold : '—'}</Text>
+                        </Table.Td>
+                        <Table.Td ta="center">
+                          <Text size="xs" c={returned > 0 ? 'orange' : 'dimmed'}>{returned > 0 ? returned : '0'}</Text>
+                        </Table.Td>
+                        <Table.Td ta="center">
+                          <Tooltip label="Số lượng trả vượt quá số còn lại" disabled={!isOver}>
+                            <Badge
+                              size="sm"
+                              color={remaining <= 0 ? 'red' : isOver ? 'orange' : 'green'}
+                              variant="light"
+                            >
+                              {sold > 0 ? remaining : '—'}
+                            </Badge>
+                          </Tooltip>
+                        </Table.Td>
+                      </>
+                    )
+                  })()}
                   <Table.Td>
                     <NumberInput
                       value={line.quantity}

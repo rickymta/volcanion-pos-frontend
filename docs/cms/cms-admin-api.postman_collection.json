@@ -1,0 +1,1461 @@
+{
+  "info": {
+    "_postman_id": "cms-admin-api-collection-v1",
+    "name": "CMS — Admin API",
+    "description": "Bộ request đầy đủ cho CMS Admin API:\n- Authentication (Login / Refresh / Logout)\n- Posts CRUD + Publish / Archive\n- Categories, Tags, Media upload\n- Contacts, Static Pages, FAQs\n- Pricing Plans, Testimonials\n- Site Settings, Users, Dashboard\n\n## Hướng dẫn sử dụng\n1. Cập nhật biến `baseUrl` (mặc định `http://localhost:5002`).\n2. Chạy **Login** để tự động lưu `accessToken`.\n3. Các request còn lại kế thừa Bearer token từ collection.\n\n## Biến collection\n| Biến | Mô tả |\n|------|-------|\n| `baseUrl` | URL gốc CMS Admin API |\n| `accessToken` | JWT — tự động gán sau Login |\n| `refreshToken` | Refresh token — tự động gán |\n| `postId` | ID bài viết vừa tạo |\n| `categoryId` | ID danh mục vừa tạo |\n| `tagId` | ID tag vừa tạo |\n| `mediaId` | ID media vừa upload |\n| `contactId` | ID contact request |\n| `pageId` | ID static page vừa tạo |\n| `faqId` | ID FAQ vừa tạo |\n| `pricingId` | ID pricing plan vừa tạo |\n| `testimonialId` | ID testimonial vừa tạo |\n| `userId` | ID CMS user vừa tạo |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",        "value": "http://localhost:5002", "type": "string" },
+    { "key": "accessToken",    "value": "",                      "type": "string" },
+    { "key": "refreshToken",   "value": "",                      "type": "string" },
+    { "key": "postId",         "value": "",                      "type": "string" },
+    { "key": "categoryId",     "value": "",                      "type": "string" },
+    { "key": "tagId",          "value": "",                      "type": "string" },
+    { "key": "mediaId",        "value": "",                      "type": "string" },
+    { "key": "contactId",      "value": "",                      "type": "string" },
+    { "key": "pageId",         "value": "",                      "type": "string" },
+    { "key": "faqId",          "value": "",                      "type": "string" },
+    { "key": "pricingId",      "value": "",                      "type": "string" },
+    { "key": "testimonialId",  "value": "",                      "type": "string" },
+    { "key": "userId",         "value": "",                      "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "description": "Đăng nhập, refresh token, logout, xem profile.\nRoute: /api/v1/admin/auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "    console.log('✅ Token saved, expires:', res.expiresAt);",
+                  "}",
+                  "pm.test('Login success', () => pm.response.to.have.status(200));",
+                  "pm.test('Has accessToken', () => pm.expect(res).to.have.property('accessToken'));",
+                  "pm.test('Has user info', () => pm.expect(res.user).to.have.property('email'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@cms.local\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "auth", "login"]
+            },
+            "description": "Đăng nhập CMS. Trả về accessToken + refreshToken.\nRate limit: 10 req/phút."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "    console.log('✅ Token refreshed');",
+                  "}",
+                  "pm.test('Refresh success', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "auth", "refresh"]
+            },
+            "description": "Làm mới access token bằng refresh token.\nRate limit: 10 req/phút."
+          }
+        },
+        {
+          "name": "Get Profile (me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has email', () => pm.expect(res).to.have.property('email'));",
+                  "pm.test('Has role', () => pm.expect(res).to.have.property('role'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "auth", "me"]
+            },
+            "description": "Lấy thông tin user đang đăng nhập."
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "auth", "logout"]
+            },
+            "description": "Xoá refresh token phía server."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📝 Posts",
+      "description": "CRUD bài viết, publish/archive.\nRoute: /api/v1/admin/posts\nAuthorization: EditorPlus (Admin, Editor) — Delete: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách bài viết",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has items array', () => pm.expect(res.items).to.be.an('array'));",
+                  "pm.test('Has totalCount', () => pm.expect(res).to.have.property('totalCount'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/posts?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "posts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "categoryId", "value": "", "disabled": true },
+                { "key": "tagSlug", "value": "", "disabled": true },
+                { "key": "status", "value": "Published", "disabled": true },
+                { "key": "isFeatured", "value": "true", "disabled": true }
+              ]
+            },
+            "description": "Danh sách tất cả bài viết (phân trang). Hỗ trợ lọc theo search, categoryId, tagSlug, status, isFeatured."
+          }
+        },
+        {
+          "name": "Chi tiết bài viết",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has content', () => pm.expect(res).to.have.property('content'));",
+                  "pm.test('Has categories', () => pm.expect(res.categories).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/posts/{{postId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "posts", "{{postId}}"]
+            },
+            "description": "Chi tiết bài viết theo ID (bao gồm draft, archived)."
+          }
+        },
+        {
+          "name": "Tạo bài viết",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('postId', res.id);",
+                  "console.log('✅ postId saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Giới thiệu POS Pro\",\n  \"slug\": null,\n  \"excerpt\": \"Hệ thống POS hiện đại cho cửa hàng bán lẻ\",\n  \"content\": \"<h2>POS Pro là gì?</h2><p>POS Pro là giải pháp quản lý bán hàng toàn diện...</p>\",\n  \"coverImageUrl\": null,\n  \"status\": \"Draft\",\n  \"isFeatured\": false,\n  \"publishedAt\": null,\n  \"metaTitle\": null,\n  \"metaDescription\": null,\n  \"ogImageUrl\": null,\n  \"categoryIds\": [],\n  \"tagIds\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/posts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "posts"]
+            },
+            "description": "Tạo bài viết mới. Slug tự động sinh từ title nếu để null."
+          }
+        },
+        {
+          "name": "Cập nhật bài viết",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Title updated', () => pm.expect(res.title).to.eql('Giới thiệu POS Pro (Updated)'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Giới thiệu POS Pro (Updated)\",\n  \"slug\": null,\n  \"excerpt\": \"Hệ thống POS hiện đại — phiên bản cập nhật\",\n  \"content\": \"<h2>POS Pro là gì?</h2><p>Nội dung đã được cập nhật...</p>\",\n  \"coverImageUrl\": null,\n  \"status\": \"Draft\",\n  \"isFeatured\": true,\n  \"publishedAt\": null,\n  \"metaTitle\": \"POS Pro - Giải pháp bán hàng\",\n  \"metaDescription\": \"Khám phá POS Pro...\",\n  \"ogImageUrl\": null,\n  \"categoryIds\": [],\n  \"tagIds\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/posts/{{postId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "posts", "{{postId}}"]
+            },
+            "description": "Cập nhật bài viết theo ID."
+          }
+        },
+        {
+          "name": "Publish bài viết",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/posts/{{postId}}/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "posts", "{{postId}}", "publish"]
+            },
+            "description": "Chuyển bài viết sang Published. Tự động set publishedAt nếu chưa có."
+          }
+        },
+        {
+          "name": "Archive bài viết",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/posts/{{postId}}/archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "posts", "{{postId}}", "archive"]
+            },
+            "description": "Chuyển bài viết sang Archived."
+          }
+        },
+        {
+          "name": "Xoá bài viết (soft-delete)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/posts/{{postId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "posts", "{{postId}}"]
+            },
+            "description": "Soft-delete bài viết (đánh dấu IsDeleted). Yêu cầu AdminOnly."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🗂️ Categories",
+      "description": "CRUD danh mục bài viết.\nRoute: /api/v1/admin/categories\nAuthorization: EditorPlus — Delete: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách tất cả categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories"]
+            },
+            "description": "Tất cả categories (bao gồm inactive), sắp xếp theo sortOrder."
+          }
+        },
+        {
+          "name": "Chi tiết category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories", "{{categoryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Tạo category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('categoryId', res.id);",
+                  "console.log('✅ categoryId saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tin tức\",\n  \"slug\": null,\n  \"description\": \"Tin tức mới nhất từ POS Pro\",\n  \"parentId\": null,\n  \"sortOrder\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories"]
+            },
+            "description": "Tạo category mới. Slug tự sinh nếu để null."
+          }
+        },
+        {
+          "name": "Cập nhật category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tin tức (Updated)\",\n  \"slug\": \"tin-tuc\",\n  \"description\": \"Danh mục tin tức đã cập nhật\",\n  \"parentId\": null,\n  \"sortOrder\": 0,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories", "{{categoryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Xoá category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories", "{{categoryId}}"]
+            },
+            "description": "Xoá category. Yêu cầu AdminOnly."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏷️ Tags",
+      "description": "CRUD tags.\nRoute: /api/v1/admin/tags\nAuthorization: EditorPlus — Delete: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách tất cả tags",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tags",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags"]
+            }
+          }
+        },
+        {
+          "name": "Chi tiết tag",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tags/{{tagId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags", "{{tagId}}"]
+            }
+          }
+        },
+        {
+          "name": "Tạo tag",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('tagId', res.id);",
+                  "console.log('✅ tagId saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"POS\",\n  \"slug\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tags",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags"]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật tag",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"POS System\",\n  \"slug\": \"pos-system\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tags/{{tagId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags", "{{tagId}}"]
+            }
+          }
+        },
+        {
+          "name": "Xoá tag",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tags/{{tagId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags", "{{tagId}}"]
+            },
+            "description": "Xoá tag. Yêu cầu AdminOnly."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📸 Media",
+      "description": "Upload và quản lý media files.\nRoute: /api/v1/admin/media\nAuthorization: EditorPlus — Delete: AdminOnly\nMax upload: 20 MB",
+      "item": [
+        {
+          "name": "Danh sách media",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has items', () => pm.expect(res.items).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/media?page=1&pageSize=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "media"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "30" },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Danh sách media files (phân trang)."
+          }
+        },
+        {
+          "name": "Upload file",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('mediaId', res.id);",
+                  "console.log('✅ mediaId saved:', res.id, '— URL:', res.url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Chọn file (jpg, png, gif, webp, svg, pdf, mp4, webm). Max 20 MB."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/media/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "media", "upload"]
+            },
+            "description": "Upload media file.\nAllowed types: image/jpeg, image/png, image/gif, image/webp, image/svg+xml, application/pdf, video/mp4, video/webm.\nMax size: 20 MB."
+          }
+        },
+        {
+          "name": "Xoá media",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/media/{{mediaId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "media", "{{mediaId}}"]
+            },
+            "description": "Xoá media file. Yêu cầu AdminOnly."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📩 Contacts",
+      "description": "Quản lý yêu cầu liên hệ.\nRoute: /api/v1/admin/contacts\nAuthorization: SupportPlus (Admin, Editor, Support)",
+      "item": [
+        {
+          "name": "Danh sách contacts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has items', () => pm.expect(res.items).to.be.an('array'));",
+                  "if (res.items.length > 0) {",
+                  "    pm.collectionVariables.set('contactId', res.items[0].id);",
+                  "    console.log('✅ contactId saved:', res.items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/contacts?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "contacts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "type", "value": "Support", "disabled": true },
+                { "key": "status", "value": "New", "disabled": true }
+              ]
+            },
+            "description": "Danh sách contacts (phân trang). Lọc theo search, type, status."
+          }
+        },
+        {
+          "name": "Chi tiết contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "contacts", "{{contactId}}"]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật trạng thái contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InProgress\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/contacts/{{contactId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "contacts", "{{contactId}}", "status"]
+            },
+            "description": "Cập nhật trạng thái: New, InProgress, Resolved, Closed."
+          }
+        },
+        {
+          "name": "Cập nhật ghi chú nội bộ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"internalNotes\": \"Đã liên hệ qua điện thoại, hẹn gọi lại ngày mai.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/contacts/{{contactId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "contacts", "{{contactId}}", "notes"]
+            },
+            "description": "Cập nhật ghi chú nội bộ cho contact request."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📄 Static Pages",
+      "description": "CRUD trang tĩnh (About, Privacy Policy, ...).\nRoute: /api/v1/admin/pages\nAuthorization: EditorPlus — Delete: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách pages",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pages"]
+            }
+          }
+        },
+        {
+          "name": "Chi tiết page",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pages/{{pageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pages", "{{pageId}}"]
+            }
+          }
+        },
+        {
+          "name": "Tạo page",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('pageId', res.id);",
+                  "console.log('✅ pageId saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Chính sách bảo mật\",\n  \"slug\": null,\n  \"content\": \"<h1>Chính sách bảo mật</h1><p>Chúng tôi cam kết bảo vệ thông tin...</p>\",\n  \"metaTitle\": \"Chính sách bảo mật - POS Pro\",\n  \"metaDescription\": \"Tìm hiểu về chính sách bảo mật của POS Pro\",\n  \"status\": \"Draft\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pages"]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật page",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Chính sách bảo mật (Updated)\",\n  \"slug\": \"chinh-sach-bao-mat\",\n  \"content\": \"<h1>Chính sách bảo mật</h1><p>Nội dung đã được cập nhật...</p>\",\n  \"metaTitle\": \"Chính sách bảo mật - POS Pro\",\n  \"metaDescription\": \"Chính sách bảo mật cập nhật\",\n  \"status\": \"Published\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pages/{{pageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pages", "{{pageId}}"]
+            }
+          }
+        },
+        {
+          "name": "Xoá page",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pages/{{pageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pages", "{{pageId}}"]
+            },
+            "description": "Xoá page. Yêu cầu AdminOnly."
+          }
+        }
+      ]
+    },
+    {
+      "name": "❓ FAQs",
+      "description": "CRUD câu hỏi thường gặp.\nRoute: /api/v1/admin/faqs\nAuthorization: EditorPlus — Delete: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách FAQs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/faqs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "faqs"]
+            }
+          }
+        },
+        {
+          "name": "Chi tiết FAQ",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/faqs/{{faqId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "faqs", "{{faqId}}"]
+            }
+          }
+        },
+        {
+          "name": "Tạo FAQ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('faqId', res.id);",
+                  "console.log('✅ faqId saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Làm sao để cài đặt POS Pro?\",\n  \"answer\": \"Bạn có thể tải ứng dụng từ trang chủ và làm theo hướng dẫn cài đặt chi tiết.\",\n  \"category\": \"Cài đặt\",\n  \"sortOrder\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/faqs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "faqs"]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật FAQ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Làm sao để cài đặt POS Pro? (Updated)\",\n  \"answer\": \"Tải ứng dụng từ trang chủ, chạy installer và đăng nhập bằng tài khoản được cấp.\",\n  \"category\": \"Cài đặt\",\n  \"sortOrder\": 0,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/faqs/{{faqId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "faqs", "{{faqId}}"]
+            }
+          }
+        },
+        {
+          "name": "Xoá FAQ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/faqs/{{faqId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "faqs", "{{faqId}}"]
+            },
+            "description": "Xoá FAQ. Yêu cầu AdminOnly."
+          }
+        }
+      ]
+    },
+    {
+      "name": "💰 Pricing Plans",
+      "description": "CRUD gói giá.\nRoute: /api/v1/admin/pricing\nAuthorization: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách pricing plans",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pricing",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pricing"]
+            }
+          }
+        },
+        {
+          "name": "Chi tiết pricing plan",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pricing/{{pricingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pricing", "{{pricingId}}"]
+            }
+          }
+        },
+        {
+          "name": "Tạo pricing plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('pricingId', res.id);",
+                  "console.log('✅ pricingId saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Basic\",\n  \"monthlyPrice\": 199000,\n  \"yearlyPrice\": 1990000,\n  \"currency\": \"VND\",\n  \"description\": \"Gói cơ bản cho cửa hàng nhỏ\",\n  \"features\": [\n    { \"text\": \"1 chi nhánh\", \"included\": true },\n    { \"text\": \"100 sản phẩm\", \"included\": true },\n    { \"text\": \"Báo cáo nâng cao\", \"included\": false }\n  ],\n  \"badge\": null,\n  \"ctaText\": \"Dùng thử\",\n  \"ctaUrl\": \"/register?plan=basic\",\n  \"sortOrder\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pricing",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pricing"]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật pricing plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Basic (Updated)\",\n  \"monthlyPrice\": 249000,\n  \"yearlyPrice\": 2490000,\n  \"currency\": \"VND\",\n  \"description\": \"Gói cơ bản — giá mới\",\n  \"features\": [\n    { \"text\": \"1 chi nhánh\", \"included\": true },\n    { \"text\": \"200 sản phẩm\", \"included\": true },\n    { \"text\": \"Báo cáo nâng cao\", \"included\": false }\n  ],\n  \"badge\": \"Hot\",\n  \"ctaText\": \"Đăng ký ngay\",\n  \"ctaUrl\": \"/register?plan=basic\",\n  \"sortOrder\": 0,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pricing/{{pricingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pricing", "{{pricingId}}"]
+            }
+          }
+        },
+        {
+          "name": "Xoá pricing plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/pricing/{{pricingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "pricing", "{{pricingId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "⭐ Testimonials",
+      "description": "CRUD đánh giá khách hàng.\nRoute: /api/v1/admin/testimonials\nAuthorization: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách testimonials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/testimonials",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "testimonials"]
+            }
+          }
+        },
+        {
+          "name": "Chi tiết testimonial",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/testimonials/{{testimonialId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "testimonials", "{{testimonialId}}"]
+            }
+          }
+        },
+        {
+          "name": "Tạo testimonial",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('testimonialId', res.id);",
+                  "console.log('✅ testimonialId saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Trần Thị B\",\n  \"position\": \"Chủ cửa hàng\",\n  \"company\": \"Shop ABC\",\n  \"content\": \"Phần mềm rất dễ sử dụng, nhân viên nhanh chóng làm quen.\",\n  \"avatarUrl\": null,\n  \"rating\": 5,\n  \"sortOrder\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/testimonials",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "testimonials"]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật testimonial",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Trần Thị B\",\n  \"position\": \"Giám đốc\",\n  \"company\": \"Shop ABC\",\n  \"content\": \"Dùng POS Pro hơn 1 năm, rất hài lòng với chất lượng dịch vụ.\",\n  \"avatarUrl\": null,\n  \"rating\": 5,\n  \"sortOrder\": 0,\n  \"isVisible\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/testimonials/{{testimonialId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "testimonials", "{{testimonialId}}"]
+            }
+          }
+        },
+        {
+          "name": "Xoá testimonial",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/testimonials/{{testimonialId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "testimonials", "{{testimonialId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ Site Settings",
+      "description": "Quản lý cấu hình trang web.\nRoute: /api/v1/admin/settings\nAuthorization: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách tất cả settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "settings"]
+            },
+            "description": "Tất cả settings (bao gồm internal). Group tự động xác định từ key (phần trước dấu chấm)."
+          }
+        },
+        {
+          "name": "Cập nhật settings (batch)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": [\n    { \"key\": \"company.name\", \"valueJson\": \"\\\"POS Pro\\\"\" },\n    { \"key\": \"company.phone\", \"valueJson\": \"\\\"0901234567\\\"\" },\n    { \"key\": \"seo.defaultTitle\", \"valueJson\": \"\\\"POS Pro - Phần mềm bán hàng\\\"\" },\n    { \"key\": \"social.facebook\", \"valueJson\": \"\\\"https://facebook.com/pospro\\\"\" },\n    { \"key\": \"announcement.text\", \"valueJson\": \"\\\"Ưu đãi 20% tháng 3!\\\"\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "settings"]
+            },
+            "description": "Cập nhật nhiều settings cùng lúc (upsert). valueJson chứa giá trị JSON."
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users",
+      "description": "CRUD user CMS.\nRoute: /api/v1/admin/users\nAuthorization: AdminOnly",
+      "item": [
+        {
+          "name": "Danh sách users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users"]
+            }
+          }
+        },
+        {
+          "name": "Chi tiết user",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Tạo user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('userId', res.id);",
+                  "console.log('✅ userId saved:', res.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"editor@company.com\",\n  \"password\": \"Editor@123\",\n  \"fullName\": \"Biên tập viên\",\n  \"role\": \"Editor\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users"]
+            },
+            "description": "Tạo user CMS mới. Password yêu cầu ≥ 8 ký tự, chứa chữ hoa + chữ thường + số."
+          }
+        },
+        {
+          "name": "Cập nhật user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Biên tập viên Senior\",\n  \"role\": \"Editor\",\n  \"status\": \"Active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Xoá user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "{{userId}}"]
+            },
+            "description": "Xoá user. Không thể tự xoá chính mình."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Dashboard",
+      "description": "Thống kê tổng quan.\nRoute: /api/v1/admin/dashboard\nAuthorization: Bất kỳ user đã đăng nhập",
+      "item": [
+        {
+          "name": "Thống kê Dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has totalPosts', () => pm.expect(res).to.have.property('totalPosts'));",
+                  "pm.test('Has recentPosts', () => pm.expect(res.recentPosts).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "dashboard"]
+            },
+            "description": "Thống kê: tổng bài viết, published, draft, số contact mới, 5 bài viết gần nhất."
+          }
+        }
+      ]
+    }
+  ]
+}
